@@ -34,7 +34,7 @@ function PatientDetail() {
 
       <div className="flex items-center gap-4 mb-6">
         <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg" style={{ background: "#E8F5F1", color: "#0D7A5F" }}>
-          {patient.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+          {patient.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
         </div>
         <div className="flex-1">
           <h1 className="text-[22px] font-bold" style={{ color: "#1A2332" }}>{patient.name}</h1>

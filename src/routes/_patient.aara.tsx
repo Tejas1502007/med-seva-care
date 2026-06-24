@@ -111,7 +111,7 @@ function AaraPage() {
             </span>
           </div>
 
-          {messages.map((m) => {
+          {messages.map((m: typeof messages[number]) => {
             const text = m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
             const isUser = m.role === "user";
             return (
