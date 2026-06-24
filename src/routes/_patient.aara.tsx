@@ -13,27 +13,50 @@ export const Route = createFileRoute("/_patient/aara")({
 const STORAGE_KEY = "medseva-aara-messages";
 const QUICK_REPLIES = ["Log vitals", "Missed medication", "I feel unwell", "View Lab Results"];
 
+const WELCOME = {
+  id: "welcome",
+  role: "assistant" as const,
+  parts: [
+    {
+      type: "text" as const,
+      text: "Namaste, Rajesh ji 🙏 I'm AARA, your health companion. I see your blood sugar reading today was 142 mg/dL — slightly elevated. How are you feeling? Have you taken your evening Metformin?",
+    },
+  ],
+};
+
 function AaraPage() {
   const [input, setInput] = useState("");
-  const initialMessages = (() => {
-    if (typeof window === "undefined") return [];
+  const [hydrated, setHydrated] = useState(false);
+  const [initialMessages, setInitialMessages] = useState<typeof WELCOME[]>([WELCOME]);
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) setInitialMessages(parsed);
+      }
     } catch {}
-    return [
-      {
-        id: "welcome",
-        role: "assistant" as const,
-        parts: [
-          {
-            type: "text" as const,
-            text: "Namaste, Rajesh ji 🙏 I'm AARA, your health companion. I see your blood sugar reading today was 142 mg/dL — slightly elevated. How are you feeling? Have you taken your evening Metformin?",
-          },
-        ],
-      },
-    ];
-  })();
+    setHydrated(true);
+  }, []);
+
+  if (!hydrated) return <ChatShell />;
+  return <ChatInner input={input} setInput={setInput} initialMessages={initialMessages} />;
+}
+
+function ChatShell() {
+  return <div className="flex h-screen" style={{ background: "#F7F8FA" }} />;
+}
+
+function ChatInner({
+  input,
+  setInput,
+  initialMessages,
+}: {
+  input: string;
+  setInput: (v: string) => void;
+  initialMessages: typeof WELCOME[];
+}) {
 
   const { messages, sendMessage, status } = useChat({
     id: "aara-main",
