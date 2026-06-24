@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useRef, useState } from "react";
 import { Send, Mic, Activity } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -13,12 +13,12 @@ export const Route = createFileRoute("/_patient/aara")({
 const STORAGE_KEY = "medseva-aara-messages";
 const QUICK_REPLIES = ["Log vitals", "Missed medication", "I feel unwell", "View Lab Results"];
 
-const WELCOME = {
+const WELCOME: UIMessage = {
   id: "welcome",
-  role: "assistant" as const,
+  role: "assistant",
   parts: [
     {
-      type: "text" as const,
+      type: "text",
       text: "Namaste, Rajesh ji 🙏 I'm AARA, your health companion. I see your blood sugar reading today was 142 mg/dL — slightly elevated. How are you feeling? Have you taken your evening Metformin?",
     },
   ],
@@ -27,7 +27,7 @@ const WELCOME = {
 function AaraPage() {
   const [input, setInput] = useState("");
   const [hydrated, setHydrated] = useState(false);
-  const [initialMessages, setInitialMessages] = useState<typeof WELCOME[]>([WELCOME]);
+  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([WELCOME]);
 
   useEffect(() => {
     try {
@@ -55,7 +55,7 @@ function ChatInner({
 }: {
   input: string;
   setInput: (v: string) => void;
-  initialMessages: typeof WELCOME[];
+  initialMessages: UIMessage[];
 }) {
 
   const { messages, sendMessage, status } = useChat({
