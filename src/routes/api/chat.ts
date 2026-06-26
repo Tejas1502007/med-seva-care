@@ -1,31 +1,117 @@
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
 
-const SYSTEM_PROMPT = `You are AARA, MedSeva's warm and empathetic AI health companion for Indian patients. Patient: Rajesh Sharma, 62M, Type 2 Diabetes + Hypertension, medications: Metformin 500mg (BD), Amlodipine 5mg (OD), Atorvastatin 10mg (OD). Recent vitals: Blood Sugar 142 mg/dL, BP 138/88, HbA1c 7.2.
-
-Respond in under 80 words. Be warm, respectful (address him as "Rajesh ji"), and use simple language an older Indian patient understands. Reference Indian foods (dal, roti, sabzi) when discussing diet. Always recommend consulting his doctor for serious concerns. Never diagnose. Be encouraging about small wins.`;
+const SYSTEM_PROMPT = `You are AARA, MedSeva's warm and empathetic AI health companion for Indian patients managing chronic conditions like diabetes and hypertension.`;
 
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { messages } = (await request.json()) as { messages?: unknown };
-        if (!Array.isArray(messages)) return new Response("Messages required", { status: 400 });
+        try {
+          console.log("✅ Chat API endpoint hit!");
+          
+          const body = (await request.json()) as any;
+          console.log("📨 Received body:", JSON.stringify(body).substring(0, 100));
+          
+          // The ai SDK sends messages as an array with id, role, content
+          const messages = body?.messages || [];
+          console.log("📝 Messages count:", messages.length);
+          console.log("📋 Message structure:", JSON.stringify(messages.map((m: any) => ({ role: m.role, content: String(m.content).substring(0, 30) }))));
 
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+          if (!messages.length) {
+            console.log("⚠️ No messages");
+            return new Response(
+              JSON.stringify({ 
+                id: "auto-0",
+                role: "assistant", 
+                content: "Hello! I'm AARA."
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+          }
 
-        const gateway = createLovableAiGatewayProvider(key);
-        const result = streamText({
-          model: gateway("google/gemini-3-flash-preview"),
-          system: SYSTEM_PROMPT,
-          messages: await convertToModelMessages(messages as UIMessage[]),
-        });
+          // Get key
+          const key = process.env.VITE_GROQ_API_KEY;
+          console.log("🔑 Key check - Present:", !!key, "Length:", key?.length);
 
-        return result.toUIMessageStreamResponse({
-          originalMessages: messages as UIMessage[],
-        });
+          if (!key) {
+            console.error("❌ No API key found!");
+            return new Response(
+              JSON.stringify({ 
+                id: "auto-err",
+                role: "assistant", 
+                content: "API key missing" 
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          // Format messages - extract just what Groq needs
+          const formattedMessages = messages
+            .map((m: any) => ({
+              role: m.role || "user",
+              content: typeof m.content === "string" ? m.content : String(m.content),
+            }))
+            .filter((m: any) => m.content?.trim());
+
+          console.log("✅ Formatted", formattedMessages.length, "messages for Groq");
+
+          // Call Groq
+          console.log("🚀 Calling Groq API...");
+          
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [{ role: "system", content: SYSTEM_PROMPT }, ...formattedMessages],
+              temperature: 0.7,
+              max_tokens: 250,
+            }),
+          });
+
+          console.log("📊 Groq response status:", response.status);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ Groq error:", response.status, errorText.substring(0, 200));
+            return new Response(
+              JSON.stringify({ 
+                id: "auto-err",
+                role: "assistant", 
+                content: `Error: ${response.status}` 
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          const result = await response.json() as any;
+          const reply = result.choices?.[0]?.message?.content || "No response";
+          
+          console.log("✅ Success! Reply:", reply.substring(0, 50));
+
+          // Return proper format for ai SDK
+          return new Response(
+            JSON.stringify({ 
+              id: `msg-${Date.now()}`,
+              role: "assistant", 
+              content: reply 
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        } catch (error) {
+          console.error("❌ Error:", error);
+          return new Response(
+            JSON.stringify({ 
+              id: "auto-err",
+              role: "assistant", 
+              content: `Error: ${String(error)}` 
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
       },
     },
   },

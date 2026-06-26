@@ -14,13 +14,18 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PatientRouteImport } from './routes/_patient'
 import { Route as DoctorRouteImport } from './routes/_doctor'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as ApiMedAnalysisRouteImport } from './routes/api/med-analysis'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiAnalyzeReportRouteImport } from './routes/api/analyze-report'
 import { Route as PatientReportsRouteImport } from './routes/_patient.reports'
 import { Route as PatientProfileRouteImport } from './routes/_patient.profile'
 import { Route as PatientDashboardRouteImport } from './routes/_patient.dashboard'
 import { Route as PatientCarePlanRouteImport } from './routes/_patient.care-plan'
 import { Route as PatientAaraRouteImport } from './routes/_patient.aara'
 import { Route as DoctorDoctorRouteImport } from './routes/_doctor.doctor'
+import { Route as ApiNutritionSearchRouteImport } from './routes/api/nutrition/search'
+import { Route as ApiNutritionGeneratePlanRouteImport } from './routes/api/nutrition/generate-plan'
 import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor.doctor.profile'
 import { Route as DoctorDoctorPatientIdRouteImport } from './routes/_doctor.doctor.patient.$id'
 
@@ -47,9 +52,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMedAnalysisRoute = ApiMedAnalysisRouteImport.update({
+  id: '/api/med-analysis',
+  path: '/api/med-analysis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyzeReportRoute = ApiAnalyzeReportRouteImport.update({
+  id: '/api/analyze-report',
+  path: '/api/analyze-report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PatientReportsRoute = PatientReportsRouteImport.update({
@@ -82,6 +102,17 @@ const DoctorDoctorRoute = DoctorDoctorRouteImport.update({
   path: '/doctor',
   getParentRoute: () => DoctorRoute,
 } as any)
+const ApiNutritionSearchRoute = ApiNutritionSearchRouteImport.update({
+  id: '/api/nutrition/search',
+  path: '/api/nutrition/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNutritionGeneratePlanRoute =
+  ApiNutritionGeneratePlanRouteImport.update({
+    id: '/api/nutrition/generate-plan',
+    path: '/api/nutrition/generate-plan',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DoctorDoctorProfileRoute = DoctorDoctorProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -103,8 +134,13 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof PatientDashboardRoute
   '/profile': typeof PatientProfileRoute
   '/reports': typeof PatientReportsRoute
+  '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/med-analysis': typeof ApiMedAnalysisRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
+  '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
+  '/api/nutrition/search': typeof ApiNutritionSearchRoute
   '/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
 export interface FileRoutesByTo {
@@ -117,8 +153,13 @@ export interface FileRoutesByTo {
   '/dashboard': typeof PatientDashboardRoute
   '/profile': typeof PatientProfileRoute
   '/reports': typeof PatientReportsRoute
+  '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/med-analysis': typeof ApiMedAnalysisRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
+  '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
+  '/api/nutrition/search': typeof ApiNutritionSearchRoute
   '/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
 export interface FileRoutesById {
@@ -134,8 +175,13 @@ export interface FileRoutesById {
   '/_patient/dashboard': typeof PatientDashboardRoute
   '/_patient/profile': typeof PatientProfileRoute
   '/_patient/reports': typeof PatientReportsRoute
+  '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/med-analysis': typeof ApiMedAnalysisRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
+  '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
+  '/api/nutrition/search': typeof ApiNutritionSearchRoute
   '/_doctor/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
 export interface FileRouteTypes {
@@ -150,8 +196,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/reports'
+    | '/api/analyze-report'
     | '/api/chat'
+    | '/api/med-analysis'
+    | '/auth/callback'
     | '/doctor/profile'
+    | '/api/nutrition/generate-plan'
+    | '/api/nutrition/search'
     | '/doctor/patient/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -164,8 +215,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/reports'
+    | '/api/analyze-report'
     | '/api/chat'
+    | '/api/med-analysis'
+    | '/auth/callback'
     | '/doctor/profile'
+    | '/api/nutrition/generate-plan'
+    | '/api/nutrition/search'
     | '/doctor/patient/$id'
   id:
     | '__root__'
@@ -180,8 +236,13 @@ export interface FileRouteTypes {
     | '/_patient/dashboard'
     | '/_patient/profile'
     | '/_patient/reports'
+    | '/api/analyze-report'
     | '/api/chat'
+    | '/api/med-analysis'
+    | '/auth/callback'
     | '/_doctor/doctor/profile'
+    | '/api/nutrition/generate-plan'
+    | '/api/nutrition/search'
     | '/_doctor/doctor/patient/$id'
   fileRoutesById: FileRoutesById
 }
@@ -191,7 +252,12 @@ export interface RootRouteChildren {
   PatientRoute: typeof PatientRouteWithChildren
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  ApiAnalyzeReportRoute: typeof ApiAnalyzeReportRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiMedAnalysisRoute: typeof ApiMedAnalysisRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  ApiNutritionGeneratePlanRoute: typeof ApiNutritionGeneratePlanRoute
+  ApiNutritionSearchRoute: typeof ApiNutritionSearchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -231,11 +297,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/med-analysis': {
+      id: '/api/med-analysis'
+      path: '/api/med-analysis'
+      fullPath: '/api/med-analysis'
+      preLoaderRoute: typeof ApiMedAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analyze-report': {
+      id: '/api/analyze-report'
+      path: '/api/analyze-report'
+      fullPath: '/api/analyze-report'
+      preLoaderRoute: typeof ApiAnalyzeReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_patient/reports': {
@@ -279,6 +366,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/doctor'
       preLoaderRoute: typeof DoctorDoctorRouteImport
       parentRoute: typeof DoctorRoute
+    }
+    '/api/nutrition/search': {
+      id: '/api/nutrition/search'
+      path: '/api/nutrition/search'
+      fullPath: '/api/nutrition/search'
+      preLoaderRoute: typeof ApiNutritionSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/nutrition/generate-plan': {
+      id: '/api/nutrition/generate-plan'
+      path: '/api/nutrition/generate-plan'
+      fullPath: '/api/nutrition/generate-plan'
+      preLoaderRoute: typeof ApiNutritionGeneratePlanRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_doctor/doctor/profile': {
       id: '/_doctor/doctor/profile'
@@ -347,7 +448,12 @@ const rootRouteChildren: RootRouteChildren = {
   PatientRoute: PatientRouteWithChildren,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  ApiAnalyzeReportRoute: ApiAnalyzeReportRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiMedAnalysisRoute: ApiMedAnalysisRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  ApiNutritionGeneratePlanRoute: ApiNutritionGeneratePlanRoute,
+  ApiNutritionSearchRoute: ApiNutritionSearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

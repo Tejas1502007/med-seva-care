@@ -1,20 +1,28 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { PatientSidebar } from "@/components/PatientSidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_patient")({
-  beforeLoad: ({ location }) => {
-    if (location.pathname === "/_patient") throw redirect({ to: "/dashboard" });
+  beforeLoad: async ({ location }) => {
+    // Skip auth check on server — session lives in browser localStorage only
+    if (typeof window === "undefined") return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
   },
   component: PatientLayout,
 });
 
 function PatientLayout() {
   return (
-    <div className="flex min-h-screen w-full" style={{ background: "#F7F8FA" }}>
+    <SidebarProvider>
       <PatientSidebar />
-      <main className="flex-1 min-w-0">
+      <SidebarInset className="bg-[#F7F8FA]">
         <Outlet />
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

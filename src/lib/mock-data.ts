@@ -41,9 +41,9 @@ export const adherenceWeek = [
 ];
 
 export const medications = [
-  { id: "m1", name: "Metformin", dose: "500mg", frequency: "Twice daily", time: "8:00 PM", status: "Pending", streak: 5 },
-  { id: "m2", name: "Amlodipine", dose: "5mg", frequency: "Once daily", time: "9:00 AM", status: "Taken", streak: 12 },
-  { id: "m3", name: "Atorvastatin", dose: "10mg", frequency: "Once daily", time: "10:00 PM", status: "Pending", streak: 8 },
+  { id: "m1", name: "Metformin", quantity: 1, unit: "tablet", dose: "500mg", frequency: "Twice daily", time: "8:00 PM", times: ["08:00", "20:00"], notes: "Take with meals", status: "Pending", streak: 5 },
+  { id: "m2", name: "Amlodipine", quantity: 1, unit: "tablet", dose: "5mg", frequency: "Once daily", time: "9:00 AM", times: ["09:00"], notes: "", status: "Taken", streak: 12 },
+  { id: "m3", name: "Atorvastatin", quantity: 1, unit: "tablet", dose: "10mg", frequency: "Once daily", time: "10:00 PM", times: ["22:00"], notes: "Take before bed", status: "Pending", streak: 8 },
 ];
 
 export const dietPlan = {

@@ -61,6 +61,16 @@
 :root {
   --background: #f7f8fa;
   --foreground: #1a2332;
+
+  /* shadcn sidebar tokens */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a2332;
+  --sidebar-primary: #0d7a5f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8f5f1;
+  --sidebar-accent-foreground: #0d7a5f;
+  --sidebar-border: #e8ecf0;
+  --sidebar-ring: #0d7a5f;
   --card: #ffffff;
   --card-foreground: #1a2332;
   --popover: #ffffff;
@@ -134,4 +144,16 @@
   background: linear-gradient(135deg, #f0fdf9 0%, #e8f5f1 100%);
   border-left: 3px solid var(--color-teal);
   border-radius: 12px;
+}
+
+@utility input-base {
+  width: 100%;
+  height: 40px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: 10px;
+  border: 1px solid #D1D5DB;
+  font-size: 14px;
+  outline: none;
+  color: #1A2332;
 }
