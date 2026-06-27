@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileText, UploadCloud, X, Sparkles, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
+import { FileText, UploadCloud, X, Sparkles, ExternalLink, Loader2, AlertTriangle, ClipboardList, ShieldCheck, TriangleAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_patient/reports")({
@@ -231,7 +231,7 @@ function ReportsPage() {
   const busy = stage !== "idle";
 
   return (
-    <div className="px-8 py-7 max-w-[1280px] mx-auto">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[22px] font-bold" style={{ color: "#1A2332" }}>Health Reports</h1>
         <button onClick={() => fileInputRef.current?.click()} disabled={busy}
@@ -276,13 +276,20 @@ function ReportsPage() {
         {!busy && <div className="text-xs mt-1" style={{ color: "#6B7280" }}>PDF, JPG, PNG · Max 10MB · Vision AI analysis</div>}
       </div>
 
-      {/* List */}
+      {/* Stats + Empty/List section */}
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={24} color="#0D7A5F" className="animate-spin" /></div>
       ) : reports.length === 0 ? (
-        <div className="text-center py-12 text-sm" style={{ color: "#6B7280" }}>No reports yet. Upload your first health report above.</div>
+        <EmptyState onUpload={() => fileInputRef.current?.click()} />
       ) : (
-        <div className="space-y-3">
+        <>
+          <ReportStats reports={reports} />
+        </>  
+      )}
+
+      {/* List */}
+      {!loading && reports.length > 0 && (
+        <div className="space-y-3 mt-6">
           {reports.map((r) => (
             <div key={r.id} className="card-base p-4 flex items-center gap-4">
               <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: "#E8F5F1" }}>
@@ -313,6 +320,150 @@ function ReportsPage() {
       )}
 
       {open && <AnalysisDrawer report={open} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+function EmptyState({ onUpload }: { onUpload: () => void }) {
+  return (
+    <div className="w-full card-base overflow-hidden">
+      {/* Hero banner */}
+      <div className="w-full px-8 py-10 flex flex-col items-center text-center" style={{ background: "linear-gradient(135deg, #E8F5F1 0%, #F0FDF9 60%, #ffffff 100%)" }}>
+        {/* Illustration */}
+        <svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-5">
+          {/* Document */}
+          <rect x="25" y="10" width="50" height="64" rx="6" fill="#ffffff" stroke="#0D7A5F" strokeWidth="2"/>
+          <rect x="33" y="24" width="34" height="3" rx="1.5" fill="#0D7A5F" opacity="0.3"/>
+          <rect x="33" y="32" width="26" height="3" rx="1.5" fill="#0D7A5F" opacity="0.3"/>
+          <rect x="33" y="40" width="30" height="3" rx="1.5" fill="#0D7A5F" opacity="0.3"/>
+          <rect x="33" y="48" width="20" height="3" rx="1.5" fill="#0D7A5F" opacity="0.2"/>
+          {/* Upload arrow */}
+          <circle cx="86" cy="30" r="16" fill="#0D7A5F" opacity="0.12"/>
+          <path d="M86 38 L86 24 M80 30 L86 24 L92 30" stroke="#0D7A5F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Sparkle dots */}
+          <circle cx="18" cy="20" r="3" fill="#0D7A5F" opacity="0.25"/>
+          <circle cx="106" cy="60" r="4" fill="#0D7A5F" opacity="0.2"/>
+          <circle cx="14" cy="70" r="2" fill="#0D7A5F" opacity="0.15"/>
+          {/* Pulse line at bottom */}
+          <path d="M10 88 Q20 88 25 88 L32 88 L37 78 L44 98 L49 82 L54 88 L110 88" stroke="#0D7A5F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.4"/>
+        </svg>
+        <h3 className="text-xl font-bold mb-2" style={{ color: "#1A2332" }}>Your health story starts here</h3>
+        <p className="text-sm max-w-md" style={{ color: "#6B7280" }}>
+          Upload your first health report and get instant AI-powered insights on your blood sugar, blood pressure, and risk score.
+        </p>
+      </div>
+
+      {/* Steps */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 w-full" style={{ borderTop: "1px solid #EEF0F3" }}>
+        {[
+          {
+            step: "1",
+            label: "Upload Report",
+            desc: "PDF, JPG or PNG up to 10MB",
+            svg: (
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="28" fill="#E8F5F1"/>
+                <rect x="17" y="14" width="22" height="28" rx="3" fill="#fff" stroke="#0D7A5F" strokeWidth="1.5"/>
+                <path d="M28 34 L28 22 M23 27 L28 22 L33 27" stroke="#0D7A5F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <rect x="21" y="36" width="14" height="2" rx="1" fill="#0D7A5F" opacity="0.3"/>
+              </svg>
+            ),
+          },
+          {
+            step: "2",
+            label: "AI Analyzes",
+            desc: "Vision AI reads your report instantly",
+            svg: (
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="28" fill="#E8F5F1"/>
+                {/* Brain/chip */}
+                <rect x="18" y="18" width="20" height="20" rx="4" fill="#fff" stroke="#0D7A5F" strokeWidth="1.5"/>
+                <circle cx="28" cy="28" r="4" fill="#0D7A5F" opacity="0.7"/>
+                <line x1="18" y1="23" x2="14" y2="23" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="18" y1="28" x2="14" y2="28" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="18" y1="33" x2="14" y2="33" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="38" y1="23" x2="42" y2="23" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="38" y1="28" x2="42" y2="28" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="38" y1="33" x2="42" y2="33" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="23" y1="18" x2="23" y2="14" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="33" y1="18" x2="33" y2="14" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="23" y1="38" x2="23" y2="42" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="33" y1="38" x2="33" y2="42" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            ),
+          },
+          {
+            step: "3",
+            label: "Get Insights",
+            desc: "Dashboard updates with your vitals",
+            svg: (
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="28" fill="#E8F5F1"/>
+                {/* Chart bars */}
+                <rect x="16" y="30" width="6" height="12" rx="1.5" fill="#0D7A5F" opacity="0.4"/>
+                <rect x="25" y="22" width="6" height="20" rx="1.5" fill="#0D7A5F" opacity="0.7"/>
+                <rect x="34" y="16" width="6" height="26" rx="1.5" fill="#0D7A5F"/>
+                {/* Trend arrow */}
+                <path d="M16 28 L25 20 L34 14" stroke="#0D7A5F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2"/>
+              </svg>
+            ),
+          },
+        ].map(({ step, label, desc, svg }, i, arr) => (
+          <div key={step} className="flex flex-col items-center text-center px-8 py-8 relative"
+            style={{ borderRight: i < arr.length - 1 ? "1px solid #EEF0F3" : "none" }}>
+            {/* connector arrow on sm+ */}
+            {i < arr.length - 1 && (
+              <span className="hidden sm:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 text-lg" style={{ color: "#0D7A5F", opacity: 0.4 }}>›</span>
+            )}
+            {svg}
+            <div className="mt-4 flex items-center gap-2 justify-center">
+              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: "#0D7A5F" }}>{step}</span>
+              <span className="text-sm font-semibold" style={{ color: "#1A2332" }}>{label}</span>
+            </div>
+            <p className="text-xs mt-1" style={{ color: "#6B7280" }}>{desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="flex justify-center py-7" style={{ borderTop: "1px solid #EEF0F3" }}>
+        <button onClick={onUpload}
+          className="h-11 px-8 rounded-lg text-white font-semibold text-sm inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+          style={{ background: "#0D7A5F" }}>
+          <UploadCloud size={16} /> Upload First Report
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReportStats({ reports }: { reports: Report[] }) {
+  const total = reports.length;
+  const analyzed = reports.filter((r) => r.status === "Analyzed").length;
+  const flagged = reports.filter((r) => r.status === "Flagged").length;
+  const latest = reports[0];
+  const lastDate = latest
+    ? new Date(latest.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "—";
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      {[
+        { icon: ClipboardList, label: "Total Reports", value: total, color: "#0D7A5F", bg: "#E8F5F1" },
+        { icon: ShieldCheck, label: "Analyzed", value: analyzed, color: "#15803D", bg: "#F0FDF4" },
+        { icon: TriangleAlert, label: "Flagged", value: flagged, color: "#B91C1C", bg: "#FEF2F2" },
+        { icon: FileText, label: "Last Upload", value: lastDate, color: "#1A2332", bg: "#F7F8FA" },
+      ].map(({ icon: Icon, label, value, color, bg }) => (
+        <div key={label} className="card-base p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: bg }}>
+            <Icon size={18} color={color} />
+          </div>
+          <div>
+            <div className="text-xs" style={{ color: "#6B7280" }}>{label}</div>
+            <div className="text-lg font-bold" style={{ color }}>{value}</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

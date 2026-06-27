@@ -3,6 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Camera } from "lucide-react";
 import { patient } from "@/lib/mock-data";
+import { useTranslation } from "react-i18next";
+import { setLanguage } from "@/i18n";
 
 export const Route = createFileRoute("/_patient/profile")({
   head: () => ({ meta: [{ title: "Profile — MedSeva" }] }),
@@ -12,19 +14,25 @@ export const Route = createFileRoute("/_patient/profile")({
 const allConditions = ["Diabetes", "Hypertension", "CKD", "COPD", "Cardiovascular Disease", "Other"];
 
 function ProfilePage() {
+  const { t, i18n } = useTranslation();
   const [conditions, setConditions] = useState<string[]>(patient.conditions.map((c) => (c.startsWith("Type 2") ? "Diabetes" : c)));
   const [gender, setGender] = useState(patient.gender);
   const [allergies, setAllergies] = useState<string[]>(patient.allergies);
   const [allergyInput, setAllergyInput] = useState("");
 
+  const LANG_OPTIONS = [
+    { value: "en", label: "English" },
+    { value: "hi", label: "हिंदी (Hindi)" },
+  ];
+
   return (
-    <div className="px-8 py-7 max-w-[1200px] mx-auto">
-      <h1 className="text-[22px] font-bold mb-6" style={{ color: "#1A2332" }}>Profile</h1>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+      <h1 className="text-[22px] font-bold mb-6" style={{ color: "#1A2332" }}>{t("profile.title")}</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Left: Personal */}
         <div className="card-base p-6 space-y-4">
-          <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>Personal Information</h3>
+          <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>{t("profile.personalInfo")}</h3>
 
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -39,36 +47,41 @@ function ProfilePage() {
               </button>
             </div>
             <div>
-              <div className="text-sm font-semibold" style={{ color: "#1A2332" }}>Profile Photo</div>
-              <div className="text-xs" style={{ color: "#6B7280" }}>JPG or PNG, up to 2MB</div>
+              <div className="text-sm font-semibold" style={{ color: "#1A2332" }}>{t("profile.profilePhoto")}</div>
+              <div className="text-xs" style={{ color: "#6B7280" }}>{t("profile.photoHint")}</div>
             </div>
           </div>
 
-          <Field label="Full Name" defaultValue={patient.name} />
-          <Field label="Age" defaultValue={String(patient.age)} type="number" />
+          <Field label={t("profile.fullName")} defaultValue={patient.name} />
+          <Field label={t("profile.age")} defaultValue={String(patient.age)} type="number" />
 
           <div>
-            <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Gender</div>
+            <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>{t("profile.gender")}</div>
             <div className="flex p-1 rounded-lg" style={{ background: "#F3F4F6" }}>
-              {["Male", "Female", "Other"].map((g) => (
+              {(["Male", "Female", "Other"] as const).map((g) => (
                 <button
                   key={g}
                   onClick={() => setGender(g)}
                   className="flex-1 h-9 rounded-md text-sm font-medium"
                   style={{ background: gender === g ? "#FFFFFF" : "transparent", color: gender === g ? "#0D7A5F" : "#6B7280" }}
                 >
-                  {g}
+                  {t(`profile.${g.toLowerCase()}`)}
                 </button>
               ))}
             </div>
           </div>
 
-          <Field label="Phone" defaultValue={patient.phone} readOnly />
+          <Field label={t("profile.phone")} defaultValue={patient.phone} readOnly />
 
           <div>
-            <label className="text-sm font-medium mb-2 block" style={{ color: "#374151" }}>Language Preference</label>
-            <select defaultValue={patient.language} className="w-full h-11 px-3 rounded-lg border bg-white text-sm" style={{ borderColor: "#D1D5DB" }}>
-              <option>Hindi</option><option>Marathi</option><option>Tamil</option><option>English</option>
+            <label className="text-sm font-medium mb-2 block" style={{ color: "#374151" }}>{t("profile.language")}</label>
+            <select
+              value={i18n.language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="w-full h-11 px-3 rounded-lg border bg-white text-sm" style={{ borderColor: "#D1D5DB" }}>
+              {LANG_OPTIONS.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
             </select>
           </div>
 
@@ -77,17 +90,17 @@ function ProfilePage() {
             className="w-full h-11 rounded-lg text-white font-semibold text-sm"
             style={{ background: "#0D7A5F" }}
           >
-            Save Changes
+            {t("profile.saveChanges")}
           </button>
         </div>
 
         {/* Right column */}
         <div className="space-y-5">
           <div className="card-base p-6 space-y-4">
-            <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>Medical Profile</h3>
+            <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>{t("profile.medicalProfile")}</h3>
 
             <div>
-              <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Conditions</div>
+              <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>{t("profile.conditions")}</div>
               <div className="flex flex-wrap gap-2">
                 {allConditions.map((c) => {
                   const on = conditions.includes(c);
@@ -110,7 +123,7 @@ function ProfilePage() {
             </div>
 
             <div>
-              <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Allergies</div>
+              <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>{t("profile.allergies")}</div>
               <div className="flex flex-wrap gap-2 mb-2">
                 {allergies.map((a) => (
                   <span key={a} className="px-3 h-8 inline-flex items-center rounded-lg text-sm" style={{ background: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A" }}>
@@ -128,7 +141,7 @@ function ProfilePage() {
                     setAllergyInput("");
                   }
                 }}
-                placeholder="Type and press Enter"
+                placeholder={t("profile.allergyPlaceholder")}
                 className="w-full h-10 px-3 rounded-lg border text-sm"
                 style={{ borderColor: "#D1D5DB" }}
               />
@@ -136,7 +149,7 @@ function ProfilePage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium mb-2 block" style={{ color: "#374151" }}>Blood Group</label>
+                <label className="text-sm font-medium mb-2 block" style={{ color: "#374151" }}>{t("profile.bloodGroup")}</label>
                 <select defaultValue={patient.bloodGroup} className="w-full h-10 px-3 rounded-lg border bg-white text-sm" style={{ borderColor: "#D1D5DB" }}>
                   {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map(b => <option key={b}>{b}</option>)}
                 </select>
@@ -144,13 +157,13 @@ function ProfilePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Emergency Contact" defaultValue={patient.emergencyContact.name} />
-              <Field label="Phone" defaultValue={patient.emergencyContact.phone} />
+              <Field label={t("profile.emergencyContact")} defaultValue={patient.emergencyContact.name} />
+              <Field label={t("profile.phone")} defaultValue={patient.emergencyContact.phone} />
             </div>
           </div>
 
           <div className="card-base p-6">
-            <h3 className="text-base font-semibold mb-3" style={{ color: "#1A2332" }}>Linked Caregiver</h3>
+            <h3 className="text-base font-semibold mb-3" style={{ color: "#1A2332" }}>{t("profile.linkedCaregiver")}</h3>
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-full flex items-center justify-center font-semibold" style={{ background: "#E8F5F1", color: "#0D7A5F" }}>
                 PS
@@ -160,19 +173,19 @@ function ProfilePage() {
                 <div className="text-xs" style={{ color: "#6B7280" }}>Daughter</div>
               </div>
               <button className="h-9 px-3 rounded-md text-white text-xs font-semibold" style={{ background: "#0D7A5F" }}>
-                Send Health Update
+                {t("profile.sendHealthUpdate")}
               </button>
-              <button className="text-xs" style={{ color: "#6B7280" }}>Remove</button>
+              <button className="text-xs" style={{ color: "#6B7280" }}>{t("profile.remove")}</button>
             </div>
           </div>
 
           <div className="card-base p-6 space-y-3">
-            <h3 className="text-base font-semibold mb-2" style={{ color: "#1A2332" }}>Notifications</h3>
+            <h3 className="text-base font-semibold mb-2" style={{ color: "#1A2332" }}>{t("profile.notifications")}</h3>
             {[
-              { label: "WhatsApp Alerts", desc: "Daily health summary via WhatsApp" },
-              { label: "Medication Reminders", desc: "Reminders for every scheduled dose" },
-              { label: "AARA Daily Check-in", desc: "AARA messages you every morning" },
-              { label: "Weekly Health Report", desc: "Comprehensive weekly summary email" },
+              { label: t("profile.whatsappAlerts"), desc: t("profile.whatsappDesc") },
+              { label: t("profile.medReminders"), desc: t("profile.medRemindersDesc") },
+              { label: t("profile.aaraCheckin"), desc: t("profile.aaraCheckinDesc") },
+              { label: t("profile.weeklyReport"), desc: t("profile.weeklyReportDesc") },
             ].map((row, i) => <ToggleRow key={row.label} {...row} defaultOn={i !== 3} />)}
           </div>
         </div>

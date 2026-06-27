@@ -278,7 +278,7 @@ function CarePlan() {
   };
 
   return (
-    <div className="px-8 py-7 max-w-[1280px] mx-auto">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
       <h1 className="text-[22px] font-bold mb-1" style={{ color: "#1A2332" }}>My Care Plan</h1>
       <p className="text-sm mb-6" style={{ color: "#6B7280" }}>
         Manage medications, diet plan, and track your daily nutrition.

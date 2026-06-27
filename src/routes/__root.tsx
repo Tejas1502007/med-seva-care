@@ -13,6 +13,7 @@ import { AuthProvider } from "../lib/auth";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import "../i18n";
 
 function NotFoundComponent() {
   return (

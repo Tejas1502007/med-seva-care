@@ -3,13 +3,24 @@ import { PatientSidebar } from "@/components/PatientSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { supabase } from "@/lib/supabase";
 
+let cachedSession: boolean | null = null;
+
+// Register auth listener once at module level
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") cachedSession = null;
+    if (event === "SIGNED_IN") cachedSession = true;
+  });
+}
+
 export const Route = createFileRoute("/_patient")({
   beforeLoad: async ({ location }) => {
-    // Skip auth check on server — session lives in browser localStorage only
     if (typeof window === "undefined") return;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    if (cachedSession === null) {
+      const { data: { session } } = await supabase.auth.getSession();
+      cachedSession = !!session;
+    }
+    if (!cachedSession) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
   },

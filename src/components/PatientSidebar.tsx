@@ -4,20 +4,22 @@ import { MedSevaLogo } from "./MedSevaLogo";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth, signOut } from "@/lib/auth";
-
-const items = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/reports", label: "Health Reports", icon: FileText },
-  { to: "/care-plan", label: "My Care Plan", icon: ClipboardList },
-  { to: "/aara", label: "AARA", icon: MessageCircle },
-  { to: "/profile", label: "Profile", icon: User },
-];
+import { useTranslation } from "react-i18next";
 
 function PatientSidebarInner() {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const { profile } = useAuth();
+
+  const items = [
+    { to: "/dashboard", label: t("sidebar.dashboard"), icon: LayoutDashboard },
+    { to: "/reports", label: t("sidebar.healthReports"), icon: FileText },
+    { to: "/care-plan", label: t("sidebar.carePlan"), icon: ClipboardList },
+    { to: "/aara", label: t("sidebar.aara"), icon: MessageCircle },
+    { to: "/profile", label: t("sidebar.profile"), icon: User },
+  ];
 
   const displayName = profile?.full_name ?? "Patient";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -153,7 +155,7 @@ function PatientSidebarInner() {
                   <LogOut size={17} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Log out</TooltipContent>
+              <TooltipContent side="right">{t("sidebar.logout")}</TooltipContent>
             </Tooltip>
           ) : (
             <button
@@ -162,7 +164,7 @@ function PatientSidebarInner() {
               style={{ height: 40, paddingLeft: 8, paddingRight: 8 }}
             >
               <LogOut size={17} style={{ flexShrink: 0 }} />
-              <span className="text-sm font-medium">Log out</span>
+              <span className="text-sm font-medium">{t("sidebar.logout")}</span>
             </button>
           )}
         </div>

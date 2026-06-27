@@ -221,7 +221,7 @@ function Dashboard() {
   });
 
   return (
-    <div className="px-8 py-7 max-w-[1280px] mx-auto">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-1">
         <h1 className="text-[22px] font-bold" style={{ color: "#1A2332" }}>
