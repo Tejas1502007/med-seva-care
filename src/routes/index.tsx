@@ -25,7 +25,7 @@ const FAQ                = lazy(() => import("../components/landing/FAQ"));
 const CTA                = lazy(() => import("../components/landing/CTA"));
 const Footer             = lazy(() => import("../components/landing/Footer"));
 
-export const Route = createFileRoute("/")(({
+export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "MedSeva — AI Healthcare Companion for Smarter Patient Care" },
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/")(({
     ],
   }),
   component: LandingPage,
-} as any));
+});
 
 function SectionLoader() {
   return (

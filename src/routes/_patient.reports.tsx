@@ -231,7 +231,7 @@ function ReportsPage() {
   const busy = stage !== "idle";
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 page-enter">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[22px] font-bold" style={{ color: "#1A2332" }}>Health Reports</h1>
         <button onClick={() => fileInputRef.current?.click()} disabled={busy}

@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Send, Activity } from "lucide-react";
+import { Send, Activity, Phone, PhoneCall, PhoneOff, Clock, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_patient/aara")({
   head: () => ({ meta: [{ title: "AARA — Your AI Health Companion" }] }),
@@ -165,6 +167,9 @@ function AaraPage() {
           </div>
         </div>
 
+        {/* Vapi Call Scheduler */}
+        <VapiCallScheduler />
+
         <p className="text-[12px] text-center mt-auto" style={{ color: "#6B7280" }}>
           All conversations are encrypted and secure.
         </p>
@@ -263,6 +268,167 @@ function AaraPage() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VapiCallScheduler() {
+  const [phone, setPhone] = useState("");
+  const [mode, setMode] = useState<"now" | "schedule">("now");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [callStatus, setCallStatus] = useState<"idle" | "calling" | "scheduled" | "ended">("idle");
+
+  useEffect(() => {
+    // Pre-fill phone from supabase profile
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("phone").eq("id", user.id).single();
+      if (data?.phone) setPhone(data.phone);
+    });
+  }, []);
+
+  const handleCall = async () => {
+    if (!phone.trim()) { toast.error("Please enter your phone number"); return; }
+    if (mode === "schedule" && (!date || !time)) { toast.error("Please select date and time"); return; }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
+
+      const scheduledAt = mode === "schedule"
+        ? new Date(`${date}T${time}`).toISOString()
+        : undefined;
+
+      const res = await fetch("/api/vapi-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: phone,
+          patientName: profile?.full_name || "Patient",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to schedule call");
+
+      if (mode === "now") {
+        setCallStatus("calling");
+        toast.success("AARA is calling you now!");
+      } else {
+        setCallStatus("scheduled");
+        toast.success(`Call scheduled for ${new Date(`${date}T${time}`).toLocaleString("en-IN")}`);
+      }
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reset = () => { setCallStatus("idle"); setDate(""); setTime(""); };
+
+  return (
+    <div className="card-base p-4" style={{ borderLeft: "3px solid #0D7A5F" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Phone size={14} color="#0D7A5F" />
+        <span className="text-sm font-semibold" style={{ color: "#1A2332" }}>Voice Call with AARA</span>
+      </div>
+
+      {callStatus === "calling" && (
+        <div className="flex flex-col items-center gap-3 py-3">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center animate-pulse" style={{ background: "#E8F5F1" }}>
+            <PhoneCall size={20} color="#0D7A5F" />
+          </div>
+          <p className="text-sm font-semibold" style={{ color: "#0D7A5F" }}>AARA is calling you…</p>
+          <p className="text-xs text-center" style={{ color: "#6B7280" }}>Check your phone at {phone}</p>
+          <button onClick={reset} className="flex items-center gap-1 text-xs font-semibold" style={{ color: "#B91C1C" }}>
+            <PhoneOff size={12} /> End / Reset
+          </button>
+        </div>
+      )}
+
+      {callStatus === "scheduled" && (
+        <div className="flex flex-col items-center gap-2 py-3">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "#E8F5F1" }}>
+            <Clock size={20} color="#0D7A5F" />
+          </div>
+          <p className="text-sm font-semibold text-center" style={{ color: "#0D7A5F" }}>Call Scheduled!</p>
+          <p className="text-xs text-center" style={{ color: "#6B7280" }}>
+            {new Date(`${date}T${time}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+          </p>
+          <button onClick={reset} className="flex items-center gap-1 text-xs" style={{ color: "#6B7280" }}>
+            <X size={11} /> Cancel
+          </button>
+        </div>
+      )}
+
+      {callStatus === "idle" && (
+        <>
+          {/* Mode toggle */}
+          <div className="flex p-0.5 rounded-lg mb-3" style={{ background: "#F3F4F6" }}>
+            {(["now", "schedule"] as const).map((m) => (
+              <button key={m} onClick={() => setMode(m)}
+                className="flex-1 h-7 rounded-md text-xs font-semibold transition-all"
+                style={{ background: mode === m ? "#fff" : "transparent", color: mode === m ? "#0D7A5F" : "#6B7280" }}>
+                {m === "now" ? "Call Now" : "Schedule"}
+              </button>
+            ))}
+          </div>
+
+          {/* Phone */}
+          <div className="mb-2">
+            <label className="text-xs font-medium block mb-1" style={{ color: "#6B7280" }}>Your Phone Number</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 98765 43210"
+              className="w-full h-9 px-3 rounded-lg border text-xs outline-none"
+              style={{ borderColor: "#D1D5DB" }}
+              onFocus={(e) => e.currentTarget.style.borderColor = "#0D7A5F"}
+              onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+            />
+          </div>
+
+          {/* Date + Time for schedule mode */}
+          {mode === "schedule" && (
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "#6B7280" }}>Date</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full h-9 px-2 rounded-lg border text-xs outline-none"
+                  style={{ borderColor: "#D1D5DB" }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = "#0D7A5F"}
+                  onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "#6B7280" }}>Time</label>
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+                  className="w-full h-9 px-2 rounded-lg border text-xs outline-none"
+                  style={{ borderColor: "#D1D5DB" }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = "#0D7A5F"}
+                  onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+                />
+              </div>
+            </div>
+          )}
+
+          <button onClick={handleCall} disabled={loading}
+            className="w-full h-9 rounded-lg text-white text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: "#0D7A5F" }}>
+            {loading ? (
+              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Phone size={13} />
+            )}
+            {loading ? "Connecting…" : mode === "now" ? "Call Me Now" : "Schedule Call"}
+          </button>
+        </>
+      )}
     </div>
   );
 }

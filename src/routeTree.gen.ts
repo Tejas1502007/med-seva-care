@@ -15,6 +15,7 @@ import { Route as PatientRouteImport } from './routes/_patient'
 import { Route as DoctorRouteImport } from './routes/_doctor'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as ApiVapiCallRouteImport } from './routes/api/vapi-call'
 import { Route as ApiMedAnalysisRouteImport } from './routes/api/med-analysis'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAnalyzeReportRouteImport } from './routes/api/analyze-report'
@@ -55,6 +56,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVapiCallRoute = ApiVapiCallRouteImport.update({
+  id: '/api/vapi-call',
+  path: '/api/vapi-call',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMedAnalysisRoute = ApiMedAnalysisRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
+  '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
+  '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
+  '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/api/analyze-report'
     | '/api/chat'
     | '/api/med-analysis'
+    | '/api/vapi-call'
     | '/auth/callback'
     | '/doctor/profile'
     | '/api/nutrition/generate-plan'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/api/analyze-report'
     | '/api/chat'
     | '/api/med-analysis'
+    | '/api/vapi-call'
     | '/auth/callback'
     | '/doctor/profile'
     | '/api/nutrition/generate-plan'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/api/analyze-report'
     | '/api/chat'
     | '/api/med-analysis'
+    | '/api/vapi-call'
     | '/auth/callback'
     | '/_doctor/doctor/profile'
     | '/api/nutrition/generate-plan'
@@ -255,6 +267,7 @@ export interface RootRouteChildren {
   ApiAnalyzeReportRoute: typeof ApiAnalyzeReportRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiMedAnalysisRoute: typeof ApiMedAnalysisRoute
+  ApiVapiCallRoute: typeof ApiVapiCallRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   ApiNutritionGeneratePlanRoute: typeof ApiNutritionGeneratePlanRoute
   ApiNutritionSearchRoute: typeof ApiNutritionSearchRoute
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/vapi-call': {
+      id: '/api/vapi-call'
+      path: '/api/vapi-call'
+      fullPath: '/api/vapi-call'
+      preLoaderRoute: typeof ApiVapiCallRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/med-analysis': {
@@ -451,6 +471,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAnalyzeReportRoute: ApiAnalyzeReportRoute,
   ApiChatRoute: ApiChatRoute,
   ApiMedAnalysisRoute: ApiMedAnalysisRoute,
+  ApiVapiCallRoute: ApiVapiCallRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   ApiNutritionGeneratePlanRoute: ApiNutritionGeneratePlanRoute,
   ApiNutritionSearchRoute: ApiNutritionSearchRoute,
