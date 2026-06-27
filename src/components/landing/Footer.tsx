@@ -1,7 +1,8 @@
 "use client";
 import { motion } from "framer-motion";
-import { Activity, Github, Linkedin, Twitter, Mail } from "lucide-react";
+import { Github, Linkedin, Twitter, Mail } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { MedSevaLogo } from "../MedSevaLogo";
 
 const footerLinks = {
   Product: ["Features", "AI Reports", "Dashboard", "Pricing", "Changelog"],
@@ -19,10 +20,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2.5 mb-5 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-teal-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <Activity className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">MedSeva</span>
+              <MedSevaLogo size="md" />
             </Link>
             <p className="text-sm leading-7 text-slate-500 max-w-xs">
               AI-powered healthcare management for patients, doctors, and caregivers to collaborate on safer, smarter care.

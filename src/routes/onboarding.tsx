@@ -127,7 +127,9 @@ function Onboarding() {
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <MedSevaLogo />
+          <Link to="/">
+            <MedSevaLogo />
+          </Link>
         </div>
 
         {/* Card */}

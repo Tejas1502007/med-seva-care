@@ -59,7 +59,9 @@ function LoginPage() {
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <MedSevaLogo size="lg" />
+          <Link to="/">
+            <MedSevaLogo size="lg" />
+          </Link>
         </div>
 
         {/* Card */}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ChevronDown, Activity, Brain, LayoutDashboard, Users, Star, HelpCircle, Mail } from "lucide-react";
 import DarkModeToggle from "./DarkModeToggle";
 import { Link } from "@tanstack/react-router";
+import { MedSevaLogo } from "../MedSevaLogo";
 
 const navLinks = [
   { label: "Home", href: "#hero" },
@@ -72,17 +73,8 @@ export default function Navbar() {
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <motion.div
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.6 }}
-              className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-teal-500 flex items-center justify-center shadow-lg shadow-blue-500/25"
-            >
-              <Activity className="w-5 h-5 text-white" />
-            </motion.div>
-            <span className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-              MedSeva
-            </span>
+          <Link to="/" className="flex items-center gap-2.5">
+            <MedSevaLogo size="md" />
           </Link>
 
           {/* Desktop Nav */}

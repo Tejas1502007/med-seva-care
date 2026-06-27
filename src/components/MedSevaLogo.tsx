@@ -1,31 +1,24 @@
+"use client";
+import { Activity } from "lucide-react";
+
 export function MedSevaLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
-  const scale = size === "lg" ? 1.6 : size === "sm" ? 0.85 : 1;
+  const iconSize = size === "lg" ? "w-12 h-12" : size === "sm" ? "w-7 h-7" : "w-9 h-9";
+  const textSize = size === "lg" ? "text-2xl" : size === "sm" ? "text-base" : "text-xl";
+  const subtextSize = size === "lg" ? "text-xs" : size === "sm" ? "hidden" : "text-xs";
+
   return (
-    <div className="flex items-center gap-2.5">
-      <svg width={32 * scale} height={32 * scale} viewBox="0 0 32 32" fill="none">
-        <path
-          d="M16 4C12 4 9 7 9 11c0 3 2 5 4 6-2 1-4 3-4 6 0 4 3 7 7 7s7-3 7-7c0-3-2-5-4-6 2-1 4-3 4-6 0-4-3-7-7-7z"
-          fill="#0D7A5F"
-          opacity="0.18"
-        />
-        <path
-          d="M6 17h4l1.5-3 3 6 2.5-4h9"
-          stroke="#0D7A5F"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      </svg>
+    <div className="flex items-center gap-2.5 group">
+      <div className={`${iconSize} rounded-xl bg-gradient-to-br from-teal-600 to-teal-500 flex items-center justify-center shadow-lg shadow-teal-500/25`}>
+        <Activity className="w-5 h-5 text-white" />
+      </div>
       <div className="flex flex-col leading-tight">
-        <span
-          className="font-bold tracking-tight"
-          style={{ fontSize: 18 * scale, color: "#1A2332" }}
-        >
+        <span className={`${textSize} font-bold text-teal-700 dark:text-teal-400`}>
           MedSeva
         </span>
         {size !== "sm" && (
-          <span style={{ fontSize: 11, color: "#6B7280" }}>Continuous Care</span>
+          <span className={`${subtextSize} text-slate-500 dark:text-slate-400 font-medium`}>
+            Continuous Care
+          </span>
         )}
       </div>
     </div>

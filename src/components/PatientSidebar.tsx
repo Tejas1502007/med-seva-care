@@ -45,9 +45,9 @@ function PatientSidebarInner() {
           style={{ height: 64, minHeight: 64, paddingLeft: isCollapsed ? 0 : 20, paddingRight: isCollapsed ? 0 : 12 }}
         >
           {!isCollapsed && (
-            <div className="flex-1 min-w-0">
+            <Link to="/" className="flex-1 min-w-0">
               <MedSevaLogo />
-            </div>
+            </Link>
           )}
           <button
             onClick={toggleSidebar}
