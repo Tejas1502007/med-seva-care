@@ -1,232 +1,314 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Camera } from "lucide-react";
-import { patient } from "@/lib/mock-data";
-import { useTranslation } from "react-i18next";
-import { setLanguage } from "@/i18n";
+import { Camera, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_patient/profile")({
   head: () => ({ meta: [{ title: "Profile — MedSeva" }] }),
   component: ProfilePage,
 });
 
-const allConditions = ["Diabetes", "Hypertension", "CKD", "COPD", "Cardiovascular Disease", "Other"];
+const CHRONIC_DISEASES = [
+  "Diabetes", "Hypertension", "Asthma", "Heart Disease", "Thyroid",
+  "Kidney Disease", "Liver Disease", "Arthritis", "Cancer", "COPD",
+  "Mental Health", "Other",
+];
+const ALLERGY_OPTIONS = ["Medicine Allergy", "Food Allergy", "Dust", "Pollen", "Latex", "Other"];
+const ADDICTION_OPTIONS = ["Smoking", "Tobacco", "Alcohol", "Drugs", "None"];
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 function ProfilePage() {
-  const { t, i18n } = useTranslation();
-  const [conditions, setConditions] = useState<string[]>(patient.conditions.map((c) => (c.startsWith("Type 2") ? "Diabetes" : c)));
-  const [gender, setGender] = useState(patient.gender);
-  const [allergies, setAllergies] = useState<string[]>(patient.allergies);
-  const [allergyInput, setAllergyInput] = useState("");
+  const { user } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const LANG_OPTIONS = [
-    { value: "en", label: "English" },
-    { value: "hi", label: "हिंदी (Hindi)" },
-  ];
+  // Personal
+  const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [dob, setDob] = useState("");
+  const [gender, setGender] = useState("Male");
+  const [bloodGroup, setBloodGroup] = useState("O+");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [altPhone, setAltPhone] = useState("");
+  const [address, setAddress] = useState("");
+
+  // Emergency
+  const [emergencyName, setEmergencyName] = useState("");
+  const [emergencyPhone, setEmergencyPhone] = useState("");
+
+  // Medical
+  const [conditions, setConditions] = useState<string[]>([]);
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [addictions, setAddictions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+      const [{ data: profile }, { data: patient }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("patient_profiles").select("*").eq("id", user.id).single(),
+      ]);
+      if (profile) {
+        setFullName(profile.full_name ?? "");
+        setAvatarUrl(profile.avatar_url ?? null);
+        setPhone(profile.phone ?? "");
+        setEmail(profile.email ?? "");
+      }
+      if (patient) {
+        setDob((patient as never as { dob: string | null }).dob ?? "");
+        setGender(patient.gender ?? "Male");
+        setBloodGroup(patient.blood_group ?? "O+");
+        setHeight(String((patient as never as { height: number | null }).height ?? ""));
+        setWeight(String((patient as never as { weight: number | null }).weight ?? ""));
+        setAltPhone((patient as never as { alternate_phone: string | null }).alternate_phone ?? "");
+        setAddress((patient as never as { address: string | null }).address ?? "");
+        setConditions(patient.conditions ?? []);
+        setAllergies(patient.allergies ?? []);
+        setAddictions((patient as never as { addictions: string[] }).addictions ?? []);
+        const ec = patient.emergency_contact as { name?: string; phone?: string } | null;
+        setEmergencyName(ec?.name ?? "");
+        setEmergencyPhone(ec?.phone ?? "");
+      }
+      setLoading(false);
+    })();
+  }, [user]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${user.id}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) { toast.error("Upload failed"); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+    setAvatarUrl(publicUrl);
+    toast.success("Photo updated");
+    setUploading(false);
+  };
+
+  const save = async () => {
+    if (!user) return;
+    if (!fullName.trim()) { toast.error("Full name is required"); return; }
+    setSaving(true);
+    const [r1, r2] = await Promise.all([
+      supabase.from("profiles").update({
+        full_name: fullName,
+        phone: phone || null,
+      }).eq("id", user.id),
+      supabase.from("patient_profiles").upsert({
+        id: user.id,
+        dob: dob || null,
+        gender: gender as "Male" | "Female" | "Other",
+        blood_group: bloodGroup,
+        height: height ? parseFloat(height) : null,
+        weight: weight ? parseFloat(weight) : null,
+        alternate_phone: altPhone || null,
+        address: address || null,
+        conditions,
+        allergies,
+        addictions,
+        emergency_contact: emergencyName || emergencyPhone
+          ? { name: emergencyName, phone: emergencyPhone }
+          : null,
+      } as never),
+    ]);
+    setSaving(false);
+    if (r1.error || r2.error) { toast.error("Failed to save profile"); return; }
+    toast.success("Profile saved successfully");
+  };
+
+  const toggleItem = (list: string[], setList: (v: string[]) => void, item: string) => {
+    setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
+  };
+
+  const initials = fullName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 size={28} className="animate-spin" style={{ color: "#0D7A5F" }} />
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 page-enter">
-      <h1 className="text-[22px] font-bold mb-6" style={{ color: "#1A2332" }}>{t("profile.title")}</h1>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 page-enter max-w-5xl mx-auto">
+      <h1 className="text-[22px] font-bold mb-6" style={{ color: "#1A2332" }}>My Profile</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Left: Personal */}
-        <div className="card-base p-6 space-y-4">
-          <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>{t("profile.personalInfo")}</h3>
+      <div className="space-y-5">
 
-          <div className="flex items-center gap-4">
+        {/* ── Personal Information ── */}
+        <Section title="Personal Information">
+          {/* Avatar */}
+          <div className="flex items-center gap-4 mb-2">
             <div className="relative">
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
-                style={{ background: "#E8F5F1", color: "#0D7A5F" }}
-              >
-                RS
-              </div>
-              <button className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-white border flex items-center justify-center" style={{ borderColor: "#E8ECF0" }}>
-                <Camera size={14} color="#0D7A5F" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover" />
+              ) : (
+                <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
+                  style={{ background: "#E8F5F1", color: "#0D7A5F" }}>{initials}</div>
+              )}
+              <button onClick={() => fileRef.current?.click()}
+                className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-white border flex items-center justify-center"
+                style={{ borderColor: "#E8ECF0" }}>
+                {uploading ? <Loader2 size={12} className="animate-spin" style={{ color: "#0D7A5F" }} /> : <Camera size={13} color="#0D7A5F" />}
               </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
             </div>
             <div>
-              <div className="text-sm font-semibold" style={{ color: "#1A2332" }}>{t("profile.profilePhoto")}</div>
-              <div className="text-xs" style={{ color: "#6B7280" }}>{t("profile.photoHint")}</div>
+              <div className="text-sm font-semibold" style={{ color: "#1A2332" }}>Profile Photo</div>
+              <div className="text-xs" style={{ color: "#6B7280" }}>JPG, PNG up to 5MB</div>
             </div>
           </div>
 
-          <Field label={t("profile.fullName")} defaultValue={patient.name} />
-          <Field label={t("profile.age")} defaultValue={String(patient.age)} type="number" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Full Name *" value={fullName} onChange={setFullName} placeholder="Rajesh Sharma" />
+            <Field label="Date of Birth" value={dob} onChange={setDob} type="date" />
+          </div>
 
           <div>
-            <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>{t("profile.gender")}</div>
+            <span className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Gender</span>
             <div className="flex p-1 rounded-lg" style={{ background: "#F3F4F6" }}>
-              {(["Male", "Female", "Other"] as const).map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGender(g)}
-                  className="flex-1 h-9 rounded-md text-sm font-medium"
-                  style={{ background: gender === g ? "#FFFFFF" : "transparent", color: gender === g ? "#0D7A5F" : "#6B7280" }}
-                >
-                  {t(`profile.${g.toLowerCase()}`)}
+              {["Male", "Female", "Other"].map((g) => (
+                <button key={g} type="button" onClick={() => setGender(g)}
+                  className="flex-1 h-9 rounded-md text-sm font-medium transition-all"
+                  style={{ background: gender === g ? "#fff" : "transparent", color: gender === g ? "#0D7A5F" : "#6B7280" }}>
+                  {g}
                 </button>
               ))}
             </div>
           </div>
 
-          <Field label={t("profile.phone")} defaultValue={patient.phone} readOnly />
-
-          <div>
-            <label className="text-sm font-medium mb-2 block" style={{ color: "#374151" }}>{t("profile.language")}</label>
-            <select
-              value={i18n.language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="w-full h-11 px-3 rounded-lg border bg-white text-sm" style={{ borderColor: "#D1D5DB" }}>
-              {LANG_OPTIONS.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Blood Group</label>
+              <select value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none" style={{ borderColor: "#D1D5DB" }}>
+                {BLOOD_GROUPS.map((b) => <option key={b}>{b}</option>)}
+              </select>
+            </div>
+            <Field label="Height (cm)" value={height} onChange={setHeight} placeholder="170" type="number" />
           </div>
 
-          <button
-            onClick={() => toast.success("Profile saved")}
-            className="w-full h-11 rounded-lg text-white font-semibold text-sm"
-            style={{ background: "#0D7A5F" }}
-          >
-            {t("profile.saveChanges")}
-          </button>
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Weight (kg)" value={weight} onChange={setWeight} placeholder="70" type="number" />
+            <Field label="Mobile Number" value={phone} onChange={setPhone} placeholder="+91 98765 43210" />
+          </div>
 
-        {/* Right column */}
-        <div className="space-y-5">
-          <div className="card-base p-6 space-y-4">
-            <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>{t("profile.medicalProfile")}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Email" value={email} onChange={setEmail} type="email" readOnly />
+            <Field label="Alternate Mobile" value={altPhone} onChange={setAltPhone} placeholder="+91 98765 00000" />
+          </div>
 
-            <div>
-              <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>{t("profile.conditions")}</div>
-              <div className="flex flex-wrap gap-2">
-                {allConditions.map((c) => {
-                  const on = conditions.includes(c);
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setConditions(on ? conditions.filter((x) => x !== c) : [...conditions, c])}
-                      className="px-3 h-9 rounded-lg border text-sm"
-                      style={{
-                        background: on ? "#E8F5F1" : "#FFFFFF",
-                        borderColor: on ? "#0D7A5F" : "#D1D5DB",
-                        color: on ? "#0D7A5F" : "#374151",
-                      }}
-                    >
-                      {c}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          <Field label="Address" value={address} onChange={setAddress} placeholder="123, MG Road, Mumbai, Maharashtra" />
+        </Section>
 
-            <div>
-              <div className="text-sm font-medium mb-2" style={{ color: "#374151" }}>{t("profile.allergies")}</div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {allergies.map((a) => (
-                  <span key={a} className="px-3 h-8 inline-flex items-center rounded-lg text-sm" style={{ background: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A" }}>
-                    {a}
-                    <button className="ml-2" onClick={() => setAllergies(allergies.filter((x) => x !== a))}>×</button>
-                  </span>
-                ))}
-              </div>
-              <input
-                value={allergyInput}
-                onChange={(e) => setAllergyInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && allergyInput.trim()) {
-                    setAllergies([...allergies, allergyInput.trim()]);
-                    setAllergyInput("");
+        {/* ── Emergency Contact ── */}
+        <Section title="Emergency Contact">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Contact Name" value={emergencyName} onChange={setEmergencyName} placeholder="Priya Sharma" />
+            <Field label="Contact Number" value={emergencyPhone} onChange={setEmergencyPhone} placeholder="+91 98765 11111" />
+          </div>
+        </Section>
+
+        {/* ── Chronic Diseases ── */}
+        <Section title="Chronic Diseases">
+          <p className="text-xs mb-3" style={{ color: "#9CA3AF" }}>Select all that apply</p>
+          <div className="flex flex-wrap gap-2">
+            {CHRONIC_DISEASES.map((c) => (
+              <ChipButton key={c} label={c} active={conditions.includes(c)}
+                onClick={() => toggleItem(conditions, setConditions, c)} />
+            ))}
+          </div>
+        </Section>
+
+        {/* ── Allergies ── */}
+        <Section title="Allergies">
+          <p className="text-xs mb-3" style={{ color: "#9CA3AF" }}>Select all that apply</p>
+          <div className="flex flex-wrap gap-2">
+            {ALLERGY_OPTIONS.map((a) => (
+              <ChipButton key={a} label={a} active={allergies.includes(a)}
+                onClick={() => toggleItem(allergies, setAllergies, a)} />
+            ))}
+          </div>
+        </Section>
+
+        {/* ── Addiction ── */}
+        <Section title="Addiction / Substance Use">
+          <p className="text-xs mb-3" style={{ color: "#9CA3AF" }}>Select all that apply</p>
+          <div className="flex flex-wrap gap-2">
+            {ADDICTION_OPTIONS.map((a) => (
+              <ChipButton key={a} label={a} active={addictions.includes(a)}
+                onClick={() => {
+                  if (a === "None") {
+                    setAddictions(addictions.includes("None") ? [] : ["None"]);
+                  } else {
+                    const next = addictions.filter((x) => x !== "None");
+                    toggleItem(next, setAddictions, a);
                   }
-                }}
-                placeholder={t("profile.allergyPlaceholder")}
-                className="w-full h-10 px-3 rounded-lg border text-sm"
-                style={{ borderColor: "#D1D5DB" }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium mb-2 block" style={{ color: "#374151" }}>{t("profile.bloodGroup")}</label>
-                <select defaultValue={patient.bloodGroup} className="w-full h-10 px-3 rounded-lg border bg-white text-sm" style={{ borderColor: "#D1D5DB" }}>
-                  {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map(b => <option key={b}>{b}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label={t("profile.emergencyContact")} defaultValue={patient.emergencyContact.name} />
-              <Field label={t("profile.phone")} defaultValue={patient.emergencyContact.phone} />
-            </div>
+                }} />
+            ))}
           </div>
+        </Section>
 
-          <div className="card-base p-6">
-            <h3 className="text-base font-semibold mb-3" style={{ color: "#1A2332" }}>{t("profile.linkedCaregiver")}</h3>
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center font-semibold" style={{ background: "#E8F5F1", color: "#0D7A5F" }}>
-                PS
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-semibold" style={{ color: "#1A2332" }}>Priya Sharma</div>
-                <div className="text-xs" style={{ color: "#6B7280" }}>Daughter</div>
-              </div>
-              <button className="h-9 px-3 rounded-md text-white text-xs font-semibold" style={{ background: "#0D7A5F" }}>
-                {t("profile.sendHealthUpdate")}
-              </button>
-              <button className="text-xs" style={{ color: "#6B7280" }}>{t("profile.remove")}</button>
-            </div>
-          </div>
-
-          <div className="card-base p-6 space-y-3">
-            <h3 className="text-base font-semibold mb-2" style={{ color: "#1A2332" }}>{t("profile.notifications")}</h3>
-            {[
-              { label: t("profile.whatsappAlerts"), desc: t("profile.whatsappDesc") },
-              { label: t("profile.medReminders"), desc: t("profile.medRemindersDesc") },
-              { label: t("profile.aaraCheckin"), desc: t("profile.aaraCheckinDesc") },
-              { label: t("profile.weeklyReport"), desc: t("profile.weeklyReportDesc") },
-            ].map((row, i) => <ToggleRow key={row.label} {...row} defaultOn={i !== 3} />)}
-          </div>
-        </div>
+        {/* Save */}
+        <button onClick={save} disabled={saving}
+          className="w-full h-12 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60 hover:opacity-90 transition-opacity"
+          style={{ background: "#0D7A5F" }}>
+          {saving && <Loader2 size={15} className="animate-spin" />}
+          {saving ? "Saving…" : "Save Profile"}
+        </button>
       </div>
     </div>
   );
 }
 
-function Field({ label, defaultValue, type = "text", readOnly = false }: { label: string; defaultValue?: string; type?: string; readOnly?: boolean }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="text-sm font-medium" style={{ color: "#374151" }}>{label}</span>
-      <input
-        defaultValue={defaultValue}
-        type={type}
-        readOnly={readOnly}
-        className="mt-1.5 w-full h-11 px-3 rounded-lg border text-sm outline-none"
-        style={{ borderColor: "#D1D5DB", background: readOnly ? "#F7F8FA" : "#FFFFFF" }}
-      />
-    </label>
+    <div className="card-base p-6 space-y-4">
+      <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>{title}</h3>
+      {children}
+    </div>
   );
 }
 
-function ToggleRow({ label, desc, defaultOn }: { label: string; desc: string; defaultOn: boolean }) {
-  const [on, setOn] = useState(defaultOn);
+function Field({ label, value, onChange, placeholder, type = "text", readOnly = false }: {
+  label: string; value: string; onChange?: (v: string) => void;
+  placeholder?: string; type?: string; readOnly?: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between py-2">
-      <div>
-        <div className="text-sm font-medium" style={{ color: "#1A2332" }}>{label}</div>
-        <div className="text-xs" style={{ color: "#6B7280" }}>{desc}</div>
-      </div>
-      <button
-        onClick={() => setOn(!on)}
-        className="w-11 h-6 rounded-full relative transition-colors"
-        style={{ background: on ? "#0D7A5F" : "#D1D5DB" }}
-      >
-        <span
-          className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
-          style={{ left: on ? "calc(100% - 22px)" : 2 }}
-        />
-      </button>
+    <div>
+      <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>{label}</label>
+      <input type={type} value={value} onChange={(e) => onChange?.(e.target.value)}
+        placeholder={placeholder} readOnly={readOnly}
+        className="w-full h-11 px-3 rounded-xl border outline-none text-sm transition-all"
+        style={{ borderColor: "#D1D5DB", color: "#1A2332", background: readOnly ? "#F7F8FA" : "#fff" }}
+        onFocus={(e) => { if (!readOnly) { e.currentTarget.style.borderColor = "#0D7A5F"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(13,122,95,0.1)"; } }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = "#D1D5DB"; e.currentTarget.style.boxShadow = "none"; }} />
     </div>
+  );
+}
+
+function ChipButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="px-4 h-9 rounded-xl border text-sm font-medium transition-all"
+      style={{
+        background: active ? "#E8F5F1" : "#fff",
+        borderColor: active ? "#0D7A5F" : "#E8ECF0",
+        color: active ? "#0D7A5F" : "#374151",
+      }}>
+      {label}
+    </button>
   );
 }

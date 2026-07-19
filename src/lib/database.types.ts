@@ -3,7 +3,7 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
-export type UserRole = "patient" | "doctor";
+export type UserRole = "patient" | "doctor" | "admin";
 export type GenderType = "Male" | "Female" | "Other";
 export type RiskLevelDB = "HIGH" | "MODERATE" | "STABLE";
 export type MedStatus = "Taken" | "Pending" | "Missed";
@@ -32,14 +32,20 @@ export interface Database {
         Row: {
           id: string;
           age: number | null;
+          dob: string | null;
           gender: GenderType | null;
           blood_group: string | null;
+          height: number | null;
+          weight: number | null;
           language_pref: string;
           conditions: string[];
           allergies: string[];
+          addictions: string[];
           risk_level: RiskLevelDB;
           risk_score: number | null;
           emergency_contact: Json | null;
+          alternate_phone: string | null;
+          address: string | null;
           assigned_doctor_id: string | null;
           created_at: string;
           updated_at: string;
@@ -50,12 +56,20 @@ export interface Database {
       doctor_profiles: {
         Row: {
           id: string;
+          dob: string | null;
+          gender: string | null;
           registration_number: string;
           qualification: string;
           specialization: string;
           years_of_experience: number | null;
           hospital_clinic: string | null;
+          hospital_address: string | null;
+          consultation_fee: number | null;
+          consultation_type: "online" | "offline" | "both" | null;
           license_file_url: string | null;
+          degree_certificate_url: string | null;
+          government_id_url: string | null;
+          profile_completed: boolean;
           verification_status: DocStatus;
           verified_at: string | null;
           created_at: string;

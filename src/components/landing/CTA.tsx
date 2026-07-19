@@ -72,7 +72,7 @@ export default function CTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.7 }}
-          className="relative overflow-hidden rounded-[2rem] p-12 lg:p-16"
+          className="relative overflow-hidden rounded-[2rem] p-12 lg:p-16 dark:bg-slate-900/90"
           style={{
             /* Light blue → soft cyan gradient — Option 1 */
             background: "linear-gradient(135deg, #F0F7FF 0%, #E8F4FF 35%, #E0F2FE 65%, #EEF9FF 100%)",

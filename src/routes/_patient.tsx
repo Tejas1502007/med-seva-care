@@ -7,7 +7,6 @@ import { Bell, Search } from "lucide-react";
 
 let cachedSession: boolean | null = null;
 
-// Register auth listener once at module level
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT") cachedSession = null;
@@ -18,13 +17,20 @@ if (typeof window !== "undefined") {
 export const Route = createFileRoute("/_patient")({
   beforeLoad: async ({ location }) => {
     if (typeof window === "undefined") return;
-    if (cachedSession === null) {
-      const { data: { session } } = await supabase.auth.getSession();
-      cachedSession = !!session;
-    }
-    if (!cachedSession) {
+    const { data: { session } } = await supabase.auth.getSession();
+    cachedSession = !!session;
+    if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    // Block admin and doctor from accessing patient routes
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .single();
+    const role = profile?.role;
+    if (role === "admin") throw redirect({ to: "/admin/" });
+    if (role === "doctor") throw redirect({ to: "/doctor" });
   },
   component: PatientLayout,
 });

@@ -92,8 +92,90 @@
 }
 
 .dark {
-  --background: #f7f8fa;
-  --foreground: #1a2332;
+  --background: #020617;
+  --foreground: #f8fafc;
+  --sidebar: #020617;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #14b8a6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(20, 184, 166, 0.16);
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: rgba(148, 163, 184, 0.18);
+  --sidebar-ring: #14b8a6;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #14b8a6;
+  --primary-foreground: #ffffff;
+  --secondary: #0f172a;
+  --secondary-foreground: #f8fafc;
+  --muted: #0f172a;
+  --muted-foreground: #94a3b8;
+  --accent: rgba(20, 184, 166, 0.16);
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(148, 163, 184, 0.18);
+  --input: rgba(148, 163, 184, 0.25);
+  --ring: #14b8a6;
+  --radius: 0.75rem;
+
+  --color-canvas: #020617;
+  --color-surface: #0f172a;
+  --color-ink: #f8fafc;
+  --color-body: #cbd5e1;
+  --color-mute: #94a3b8;
+  --color-line: rgba(148, 163, 184, 0.18);
+  --color-line-soft: rgba(148, 163, 184, 0.12);
+}
+
+.dark body {
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+.dark .bg-white,
+.dark .bg-white\/80,
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-white\/80 {
+  backdrop-filter: blur(18px);
+  background-color: rgba(15, 23, 42, 0.86) !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: inherit;
+}
+
+.dark .text-slate-900 { color: #f8fafc !important; }
+.dark .text-slate-800 { color: #f8fafc !important; }
+.dark .text-slate-700 { color: #e2e8f0 !important; }
+.dark .text-slate-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500 { color: #94a3b8 !important; }
+.dark .text-slate-400 { color: #64748b !important; }
+
+.dark .border-slate-200,
+.dark .border-blue-100,
+.dark .border-white\/10 {
+  border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+.dark .shadow-slate-900\/5,
+.dark .shadow-slate-900\/8 {
+  box-shadow: 0 20px 45px rgba(2, 6, 23, 0.55) !important;
+}
+
+.dark .text-white {
+  color: #f8fafc !important;
 }
 
 @layer base {

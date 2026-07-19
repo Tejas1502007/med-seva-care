@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { MedSevaLogo } from "@/components/MedSevaLogo";
-import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/onboarding")({
@@ -10,15 +10,13 @@ export const Route = createFileRoute("/onboarding")({
   component: Onboarding,
 });
 
-const CONDITIONS = ["Diabetes", "Hypertension", "CKD", "COPD", "Cardiovascular Disease", "Other"];
-
 function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [signedUpUserId, setSignedUpUserId] = useState<string | null>(null);
 
-  // Step 1
+  // Step 1 — Account
   const [role, setRole] = useState<"Patient" | "Doctor">("Patient");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,23 +24,22 @@ function Onboarding() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Patient Step 2
+  // Step 2 — Patient basic info
   const [fullName, setFullName] = useState("");
-  const [age, setAge] = useState("");
-  const [phone, setPhone] = useState("");
+  const [dob, setDob] = useState("");
   const [gender, setGender] = useState("Male");
-  const [language, setLanguage] = useState("Hindi");
+  const [phone, setPhone] = useState("");
+  const [bloodGroup, setBloodGroup] = useState("O+");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
 
-  // Patient Step 3
-  const [selected, setSelected] = useState<string[]>([]);
-
-  // Doctor Step 2
+  // Step 2 — Doctor basic info
   const [docName, setDocName] = useState("");
   const [regNumber, setRegNumber] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [hospital, setHospital] = useState("");
 
-  const totalSteps = role === "Doctor" ? 2 : 3;
+  const totalSteps = 2;
 
   const signUpWithEmail = async () => {
     if (!email || !password) { toast.error("Please enter email and password"); return false; }
@@ -79,11 +76,26 @@ function Onboarding() {
 
       if (role === "Patient") {
         if (!fullName) { toast.error("Please enter your full name"); setLoading(false); return false; }
-        await supabase.from("patient_profiles").upsert({ id: userId, age: age ? parseInt(age) : null, gender, language_pref: language, conditions: selected });
+        const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : null;
+        await supabase.from("patient_profiles").upsert({
+          id: userId,
+          age,
+          dob: dob || null,
+          gender: gender as "Male" | "Female" | "Other",
+          blood_group: bloodGroup,
+          height: height ? parseFloat(height) : null,
+          weight: weight ? parseFloat(weight) : null,
+        } as never);
         await supabase.from("profiles").update({ full_name: fullName, phone: phone || undefined }).eq("id", userId);
       } else {
         if (!docName || !regNumber) { toast.error("Please fill in required fields"); setLoading(false); return false; }
-        await supabase.from("doctor_profiles").upsert({ id: userId, registration_number: regNumber, specialization: specialization || undefined, hospital_clinic: hospital || undefined });
+        await supabase.from("doctor_profiles").upsert({
+          id: userId,
+          registration_number: regNumber,
+          specialization: specialization || "General",
+          qualification: "MBBS",
+          hospital_clinic: hospital || undefined,
+        });
         await supabase.from("profiles").update({ full_name: docName }).eq("id", userId);
       }
       setLoading(false);
@@ -96,8 +108,13 @@ function Onboarding() {
   };
 
   const next = async () => {
-    if (step === 1) { const ok = await signUpWithEmail(); if (!ok) return; }
-    if (step === totalSteps) {
+    if (step === 1) {
+      const ok = await signUpWithEmail();
+      if (!ok) return;
+      setStep(2);
+      return;
+    }
+    if (step === 2) {
       const ok = await saveProfile();
       if (!ok) return;
       const { data: { session } } = await supabase.auth.getSession();
@@ -108,9 +125,7 @@ function Onboarding() {
         toast.success("Check your email to confirm, then sign in.");
         navigate({ to: "/login" });
       }
-      return;
     }
-    setStep(step + 1);
   };
 
   const onGoogle = async () => {
@@ -123,19 +138,13 @@ function Onboarding() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ background: "#F7F8FA" }}>
-      <div className="w-full max-w-[420px]">
-
-        {/* Logo */}
+      <div className="w-full max-w-[440px]">
         <div className="flex justify-center mb-8">
-          <Link to="/">
-            <MedSevaLogo />
-          </Link>
+          <Link to="/"><MedSevaLogo /></Link>
         </div>
 
-        {/* Card */}
         <div className="card-base p-8">
-
-          {/* Step indicator */}
+          {/* Progress */}
           <div className="flex items-center gap-2 mb-6">
             {Array.from({ length: totalSteps }, (_, i) => (
               <div key={i} className="flex-1 h-1 rounded-full transition-all duration-300"
@@ -149,7 +158,6 @@ function Onboarding() {
               <h1 className="text-xl font-bold mb-1" style={{ color: "#1A2332" }}>Create your account</h1>
               <p className="text-sm mb-5" style={{ color: "#6B7280" }}>Step 1 of {totalSteps} — Account details</p>
 
-              {/* Role toggle */}
               <div className="flex p-1 rounded-xl mb-5" style={{ background: "#F3F4F6" }}>
                 {(["Patient", "Doctor"] as const).map((r) => (
                   <button key={r} type="button" onClick={() => setRole(r)}
@@ -177,16 +185,16 @@ function Onboarding() {
             </>
           )}
 
-          {/* Patient Step 2 — Profile */}
+          {/* Step 2 — Patient basic info */}
           {step === 2 && role === "Patient" && (
             <>
-              <h1 className="text-xl font-bold mb-1" style={{ color: "#1A2332" }}>Tell us about yourself</h1>
-              <p className="text-sm mb-5" style={{ color: "#6B7280" }}>Step 2 of {totalSteps} — Personal information</p>
+              <h1 className="text-xl font-bold mb-1" style={{ color: "#1A2332" }}>Basic information</h1>
+              <p className="text-sm mb-5" style={{ color: "#6B7280" }}>Step 2 of {totalSteps} — You can fill more details in your profile later</p>
               <div className="space-y-4">
                 <Field label="Full Name *" value={fullName} onChange={setFullName} placeholder="Rajesh Sharma" />
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Age" value={age} onChange={setAge} placeholder="55" type="number" />
-                  <Field label="Phone" value={phone} onChange={setPhone} placeholder="+91 98765 43210" />
+                  <Field label="Date of Birth" value={dob} onChange={setDob} type="date" />
+                  <Field label="Mobile Number" value={phone} onChange={setPhone} placeholder="+91 98765 43210" />
                 </div>
                 <div>
                   <span className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Gender</span>
@@ -201,40 +209,21 @@ function Onboarding() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Language</label>
-                  <select value={language} onChange={(e) => setLanguage(e.target.value)}
+                  <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Blood Group</label>
+                  <select value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}
                     className="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none" style={{ borderColor: "#D1D5DB" }}>
-                    {["Hindi", "Marathi", "Tamil", "Telugu", "Bengali", "English"].map((l) => <option key={l}>{l}</option>)}
+                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => <option key={b}>{b}</option>)}
                   </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Height (cm)" value={height} onChange={setHeight} placeholder="170" type="number" />
+                  <Field label="Weight (kg)" value={weight} onChange={setWeight} placeholder="70" type="number" />
                 </div>
               </div>
             </>
           )}
 
-          {/* Patient Step 3 — Conditions */}
-          {step === 3 && role === "Patient" && (
-            <>
-              <h1 className="text-xl font-bold mb-1" style={{ color: "#1A2332" }}>Your medical conditions</h1>
-              <p className="text-sm mb-5" style={{ color: "#6B7280" }}>Step 3 of {totalSteps} — Select all that apply</p>
-              <div className="grid grid-cols-2 gap-2">
-                {CONDITIONS.map((c) => {
-                  const on = selected.includes(c);
-                  return (
-                    <button key={c} type="button"
-                      onClick={() => setSelected(on ? selected.filter((x) => x !== c) : [...selected, c])}
-                      className="h-11 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2"
-                      style={{ background: on ? "#E8F5F1" : "#fff", borderColor: on ? "#0D7A5F" : "#E8ECF0", color: on ? "#0D7A5F" : "#374151" }}>
-                      {on && <CheckCircle2 size={14} />}
-                      {c}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs mt-3" style={{ color: "#9CA3AF" }}>You can update these anytime from your profile.</p>
-            </>
-          )}
-
-          {/* Doctor Step 2 — Details */}
+          {/* Step 2 — Doctor basic info */}
           {step === 2 && role === "Doctor" && (
             <>
               <h1 className="text-xl font-bold mb-1" style={{ color: "#1A2332" }}>Professional details</h1>
@@ -261,11 +250,11 @@ function Onboarding() {
               className="flex-1 h-11 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60 hover:opacity-90 transition-opacity"
               style={{ background: "#0D7A5F" }}>
               {loading && <Loader2 size={15} className="animate-spin" />}
-              {loading ? "Please wait…" : step === totalSteps ? "Complete Setup" : "Continue"}
+              {loading ? "Please wait…" : step === totalSteps ? "Enter MedSeva" : "Continue"}
             </button>
           </div>
 
-          {role === "Patient" && step === 3 && (
+          {step === 2 && (
             <button type="button" onClick={next}
               className="w-full text-center text-sm mt-3" style={{ color: "#9CA3AF" }}>
               Skip for now
