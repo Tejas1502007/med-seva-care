@@ -9,6 +9,8 @@ export type RiskLevelDB = "HIGH" | "MODERATE" | "STABLE";
 export type MedStatus = "Taken" | "Pending" | "Missed";
 export type ReportStatus = "Analyzing" | "Analyzed" | "Flagged";
 export type DocStatus = "pending_review" | "approved" | "rejected";
+export type AppointmentStatus = "pending" | "approved" | "rejected" | "cancelled" | "completed";
+export type AppointmentMode = "online" | "offline";
 export type VitalType = "blood_sugar" | "blood_pressure" | "heart_rate" | "steps" | "weight" | "spo2";
 
 export interface Database {
@@ -175,6 +177,24 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["chat_messages"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["chat_messages"]["Insert"]>;
+      };
+      appointments: {
+        Row: {
+          id: string;
+          patient_id: string;
+          doctor_id: string;
+          appointment_date: string;   // ISO date string "YYYY-MM-DD"
+          appointment_time: string;   // "HH:MM:SS"
+          mode: AppointmentMode;
+          reason: string | null;
+          rejection_reason: string | null;
+          status: AppointmentStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["appointments"]["Row"], "id" | "created_at" | "updated_at">;
+        Update: Partial<Database["public"]["Tables"]["appointments"]["Insert"]>;
       };
     };
   };

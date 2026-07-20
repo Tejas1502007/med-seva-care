@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Users, User, PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
+import { Users, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays } from "lucide-react";
 import { MedSevaLogo } from "./MedSevaLogo";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,8 +8,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 const items = [
-  { to: "/doctor", label: "Patient Queue", icon: Users, requiresApproval: true },
-  { to: "/doctor/profile", label: "Profile", icon: User, requiresApproval: false },
+  { to: "/doctor",              label: "Patient Queue",  icon: Users,        requiresApproval: true },
+  { to: "/doctor/appointments", label: "Appointments",   icon: CalendarDays, requiresApproval: true },
+  { to: "/doctor/profile",      label: "Profile",        icon: User,         requiresApproval: false },
 ];
 
 function DoctorSidebarInner() {
@@ -83,7 +84,8 @@ function DoctorSidebarInner() {
               (pathname === to ||
                 (to === "/doctor" &&
                   pathname.startsWith("/doctor") &&
-                  pathname !== "/doctor/profile"));
+                  pathname !== "/doctor/profile" &&
+                  pathname !== "/doctor/appointments"));
 
             const btn = locked ? (
               <Tooltip key={to}>

@@ -24,6 +24,7 @@ import { Route as PatientReportsRouteImport } from './routes/_patient.reports'
 import { Route as PatientProfileRouteImport } from './routes/_patient.profile'
 import { Route as PatientDashboardRouteImport } from './routes/_patient.dashboard'
 import { Route as PatientCarePlanRouteImport } from './routes/_patient.care-plan'
+import { Route as PatientAppointmentsRouteImport } from './routes/_patient.appointments'
 import { Route as PatientAaraRouteImport } from './routes/_patient.aara'
 import { Route as DoctorDoctorRouteImport } from './routes/_doctor.doctor'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin.admin.index'
@@ -106,6 +107,11 @@ const PatientCarePlanRoute = PatientCarePlanRouteImport.update({
   path: '/care-plan',
   getParentRoute: () => PatientRoute,
 } as any)
+const PatientAppointmentsRoute = PatientAppointmentsRouteImport.update({
+  id: '/appointments',
+  path: '/appointments',
+  getParentRoute: () => PatientRoute,
+} as any)
 const PatientAaraRoute = PatientAaraRouteImport.update({
   id: '/aara',
   path: '/aara',
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/doctor': typeof DoctorDoctorRouteWithChildren
   '/aara': typeof PatientAaraRoute
+  '/appointments': typeof PatientAppointmentsRoute
   '/care-plan': typeof PatientCarePlanRoute
   '/dashboard': typeof PatientDashboardRoute
   '/profile': typeof PatientProfileRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/doctor': typeof DoctorDoctorRouteWithChildren
   '/aara': typeof PatientAaraRoute
+  '/appointments': typeof PatientAppointmentsRoute
   '/care-plan': typeof PatientCarePlanRoute
   '/dashboard': typeof PatientDashboardRoute
   '/profile': typeof PatientProfileRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_doctor/doctor': typeof DoctorDoctorRouteWithChildren
   '/_patient/aara': typeof PatientAaraRoute
+  '/_patient/appointments': typeof PatientAppointmentsRoute
   '/_patient/care-plan': typeof PatientCarePlanRoute
   '/_patient/dashboard': typeof PatientDashboardRoute
   '/_patient/profile': typeof PatientProfileRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/doctor'
     | '/aara'
+    | '/appointments'
     | '/care-plan'
     | '/dashboard'
     | '/profile'
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/doctor'
     | '/aara'
+    | '/appointments'
     | '/care-plan'
     | '/dashboard'
     | '/profile'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_doctor/doctor'
     | '/_patient/aara'
+    | '/_patient/appointments'
     | '/_patient/care-plan'
     | '/_patient/dashboard'
     | '/_patient/profile'
@@ -424,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientCarePlanRouteImport
       parentRoute: typeof PatientRoute
     }
+    '/_patient/appointments': {
+      id: '/_patient/appointments'
+      path: '/appointments'
+      fullPath: '/appointments'
+      preLoaderRoute: typeof PatientAppointmentsRouteImport
+      parentRoute: typeof PatientRoute
+    }
     '/_patient/aara': {
       id: '/_patient/aara'
       path: '/aara'
@@ -531,6 +550,7 @@ const DoctorRouteWithChildren =
 
 interface PatientRouteChildren {
   PatientAaraRoute: typeof PatientAaraRoute
+  PatientAppointmentsRoute: typeof PatientAppointmentsRoute
   PatientCarePlanRoute: typeof PatientCarePlanRoute
   PatientDashboardRoute: typeof PatientDashboardRoute
   PatientProfileRoute: typeof PatientProfileRoute
@@ -539,6 +559,7 @@ interface PatientRouteChildren {
 
 const PatientRouteChildren: PatientRouteChildren = {
   PatientAaraRoute: PatientAaraRoute,
+  PatientAppointmentsRoute: PatientAppointmentsRoute,
   PatientCarePlanRoute: PatientCarePlanRoute,
   PatientDashboardRoute: PatientDashboardRoute,
   PatientProfileRoute: PatientProfileRoute,
