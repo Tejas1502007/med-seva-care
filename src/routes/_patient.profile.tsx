@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_patient/profile")({
   head: () => ({ meta: [{ title: "Profile — MedSeva" }] }),
@@ -48,6 +49,21 @@ function ProfilePage() {
   const [allergies, setAllergies] = useState<string[]>([]);
   const [addictions, setAddictions] = useState<string[]>([]);
 
+  // Feature A: ABHA ID
+  const [abhaId, setAbhaId] = useState("");
+  const [abhaVerified, setAbhaVerified] = useState(false);
+
+  // Feature F: Government Schemes
+  const [incomeCategory, setIncomeCategory] = useState("middle");
+  const [employmentType, setEmploymentType] = useState("employed");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+
+  // Feature H: Caregiver
+  const [caregiverName, setCaregiverName] = useState("");
+  const [caregiverPhone, setCaregiverPhone] = useState("");
+  const [caregiverRelation, setCaregiverRelation] = useState("Family Member");
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -76,6 +92,16 @@ function ProfilePage() {
         const ec = patient.emergency_contact as { name?: string; phone?: string } | null;
         setEmergencyName(ec?.name ?? "");
         setEmergencyPhone(ec?.phone ?? "");
+        setAbhaId((patient as never as { abha_id: string | null }).abha_id ?? "");
+        setAbhaVerified((patient as never as { abha_verified: boolean }).abha_verified ?? false);
+        setIncomeCategory((patient as never as { income_category: string }).income_category ?? "middle");
+        setEmploymentType((patient as never as { employment_type: string }).employment_type ?? "employed");
+        setState((patient as never as { state: string | null }).state ?? "");
+        setCity((patient as never as { city: string | null }).city ?? "");
+        const cg = patient.caregiver as { name?: string; phone?: string; relation?: string } | null;
+        setCaregiverName(cg?.name ?? "");
+        setCaregiverPhone(cg?.phone ?? "");
+        setCaregiverRelation(cg?.relation ?? "Family Member");
       }
       setLoading(false);
     })();
@@ -119,6 +145,15 @@ function ProfilePage() {
         addictions,
         emergency_contact: emergencyName || emergencyPhone
           ? { name: emergencyName, phone: emergencyPhone }
+          : null,
+        abha_id: abhaId || null,
+        abha_verified: abhaVerified,
+        income_category: incomeCategory,
+        employment_type: employmentType,
+        state: state || null,
+        city: city || null,
+        caregiver: caregiverName || caregiverPhone
+          ? { name: caregiverName, phone: caregiverPhone, relation: caregiverRelation }
           : null,
       } as never),
     ]);
@@ -213,11 +248,82 @@ function ProfilePage() {
           <Field label="Address" value={address} onChange={setAddress} placeholder="123, MG Road, Mumbai, Maharashtra" />
         </Section>
 
+        {/* ── Feature A: ABHA ID ── */}
+        <Section title="ABHA ID (Ayushman Bharat Health Account)">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="ABHA ID" value={abhaId} onChange={setAbhaId} placeholder="e.g. 12-3456-7890-1234" />
+            <div>
+              <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Verification Status</label>
+              <div className="flex items-center gap-2 h-11 px-3 rounded-xl border" style={{ borderColor: "#D1D5DB", background: "#F7F8FA" }}>
+                <div className="w-2 h-2 rounded-full" style={{ background: abhaVerified ? "#15803D" : "#9CA3AF" }} />
+                <span className="text-sm" style={{ color: abhaVerified ? "#15803D" : "#6B7280" }}>
+                  {abhaVerified ? "Verified" : "Not Verified"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs mt-2" style={{ color: "#6B7280" }}>ABHA ID helps you access government health schemes and portals. Verify your ID at <a href="https://abha.abdm.gov.in" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#0D7A5F" }}>abha.abdm.gov.in</a></p>
+        </Section>
+
         {/* ── Emergency Contact ── */}
         <Section title="Emergency Contact">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Contact Name" value={emergencyName} onChange={setEmergencyName} placeholder="Priya Sharma" />
             <Field label="Contact Number" value={emergencyPhone} onChange={setEmergencyPhone} placeholder="+91 98765 11111" />
+          </div>
+        </Section>
+
+        {/* ── Feature H: Caregiver Information ── */}
+        <Section title="Caregiver Information">
+          <p className="text-xs mb-3" style={{ color: "#6B7280" }}>Add a family member or caregiver who can help monitor your health</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Caregiver Name" value={caregiverName} onChange={setCaregiverName} placeholder="e.g. Priya Sharma" />
+            <Field label="Caregiver Phone" value={caregiverPhone} onChange={setCaregiverPhone} placeholder="+91 98765 11111" />
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Relationship</label>
+            <select value={caregiverRelation} onChange={(e) => setCaregiverRelation(e.target.value)}
+              className="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none" style={{ borderColor: "#D1D5DB" }}>
+              {["Spouse", "Parent", "Child", "Sibling", "Friend", "Family Member", "Other"].map((r) => <option key={r}>{r}</option>)}
+            </select>
+          </div>
+        </Section>
+
+        {/* ── Feature F: Government Scheme Eligibility ── */}
+        <Section title="Government Scheme Eligibility">
+          <p className="text-xs mb-3" style={{ color: "#6B7280" }}>Help us determine your eligibility for government health schemes</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Income Category</label>
+              <select value={incomeCategory} onChange={(e) => setIncomeCategory(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none" style={{ borderColor: "#D1D5DB" }}>
+                {["below_poverty", "low", "middle", "high"].map((ic) => (
+                  <option key={ic} value={ic}>
+                    {ic === "below_poverty" ? "Below Poverty Line" : ic === "low" ? "Low Income" : ic === "middle" ? "Middle Income" : "High Income"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1.5" style={{ color: "#374151" }}>Employment Type</label>
+              <select value={employmentType} onChange={(e) => setEmploymentType(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none" style={{ borderColor: "#D1D5DB" }}>
+                {["employed", "self_employed", "unemployed", "student", "retired"].map((et) => (
+                  <option key={et} value={et}>
+                    {et === "self_employed" ? "Self-Employed" : et.charAt(0).toUpperCase() + et.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <Field label="State" value={state} onChange={setState} placeholder="Maharashtra" />
+            <Field label="City" value={city} onChange={setCity} placeholder="Mumbai" />
+          </div>
+          <div className="mt-4 p-3 rounded-lg" style={{ background: "#F0F9FF" }}>
+            <p className="text-xs" style={{ color: "#0369A1" }}>
+              Based on your information, you may be eligible for schemes like Ayushman Bharat, PMJAY, and state-specific health programs. Check eligibility on government portals.
+            </p>
           </div>
         </Section>
 

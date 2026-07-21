@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileText, ClipboardList, MessageCircle, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays } from "lucide-react";
+import { LayoutDashboard, FileText, ClipboardList, MessageCircle, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays, ShieldCheck } from "lucide-react";
 import { MedSevaLogo } from "./MedSevaLogo";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +16,7 @@ function PatientSidebarInner() {
   const items = [
     { to: "/dashboard",    label: t("sidebar.dashboard"),    icon: LayoutDashboard },
     { to: "/reports",      label: t("sidebar.healthReports"), icon: FileText },
+    { to: "/drug-safety",  label: "Drug Safety",              icon: ShieldCheck },
     { to: "/care-plan",    label: t("sidebar.carePlan"),      icon: ClipboardList },
     { to: "/appointments", label: t("sidebar.appointments") ?? "Appointments", icon: CalendarDays },
     { to: "/aara",         label: t("sidebar.aara"),          icon: MessageCircle },

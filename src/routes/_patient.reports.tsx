@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileText, UploadCloud, X, Sparkles, ExternalLink, Loader2, AlertTriangle, ClipboardList, ShieldCheck, TriangleAlert } from "lucide-react";
+import { FileText, UploadCloud, X, Sparkles, ExternalLink, Loader2, AlertTriangle, ClipboardList, ShieldCheck, TriangleAlert, Vault, HeartPulse, Shield } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DrugSafetyContent } from "./_patient.drug-safety";
 
 export const Route = createFileRoute("/_patient/reports")({
   head: () => ({ meta: [{ title: "Health Reports — MedSeva" }] }),
@@ -78,6 +80,7 @@ function ReportsPage() {
   const [open, setOpen] = useState<Report | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("reports");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadReports(); }, []);
@@ -233,7 +236,10 @@ function ReportsPage() {
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 page-enter">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-[22px] font-bold" style={{ color: "#1A2332" }}>Health Reports</h1>
+        <div>
+          <h1 className="text-[22px] font-bold" style={{ color: "#1A2332" }}>Care Hub</h1>
+          <p className="text-sm mt-1" style={{ color: "#6B7280" }}>Reports, health vault, recovery plan, and drug safety in one place.</p>
+        </div>
         <button onClick={() => fileInputRef.current?.click()} disabled={busy}
           className="h-10 px-4 rounded-lg text-white font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-60"
           style={{ background: "#0D7A5F" }}>
@@ -245,79 +251,113 @@ function ReportsPage() {
       <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="sr-only"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
 
-      {/* Drop zone */}
-      <div
-        onClick={() => !busy && fileInputRef.current?.click()}
-        onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && !busy) handleFile(f); }}
-        onDragOver={(e) => e.preventDefault()}
-        className="rounded-xl border-2 border-dashed py-10 text-center cursor-pointer transition-colors hover:bg-[#F0FDF9] hover:border-[#0D7A5F] mb-6"
-        style={{ borderColor: busy ? "#0D7A5F" : "#D1D5DB", background: "#FFFFFF" }}>
-        <div className="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ background: "#E8F5F1" }}>
-          {busy ? <Loader2 size={22} color="#0D7A5F" className="animate-spin" /> : <UploadCloud size={22} color="#0D7A5F" />}
-        </div>
-        <div className="text-sm font-medium" style={{ color: "#374151" }}>
-          {busy ? STAGE_LABEL[stage] : "Drag & drop or click to upload"}
-        </div>
-        {busy && (
-          <div className="flex justify-center gap-2 mt-3">
-            {(["uploading", "converting", "analyzing", "saving"] as Stage[]).map((s, i) => {
-              const stageOrder = ["uploading", "converting", "analyzing", "saving"];
-              const done = stageOrder.indexOf(stage) > i;
-              const active = stage === s;
-              return (
-                <div key={s} className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full transition-all ${active ? "bg-[#0D7A5F] scale-125" : done ? "bg-[#0D7A5F] opacity-40" : "bg-gray-200"}`} />
-                  {i < 3 && <span style={{ color: "#D1D5DB", fontSize: 10 }}>—</span>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {!busy && <div className="text-xs mt-1" style={{ color: "#6B7280" }}>PDF, JPG, PNG · Max 10MB · Vision AI analysis</div>}
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-6 bg-white border border-[#EEF0F3] p-1 rounded-xl h-auto flex-wrap justify-start gap-1">
+          <TabsTrigger value="reports" className="rounded-lg data-[state=active]:bg-[#E8F5F1] data-[state=active]:text-[#0D7A5F]">
+            <FileText size={14} className="mr-2" /> Reports
+          </TabsTrigger>
+          <TabsTrigger value="vault" className="rounded-lg data-[state=active]:bg-[#E8F5F1] data-[state=active]:text-[#0D7A5F]">
+            <Vault size={14} className="mr-2" /> Health Vault
+          </TabsTrigger>
+          <TabsTrigger value="drug" className="rounded-lg data-[state=active]:bg-[#E8F5F1] data-[state=active]:text-[#0D7A5F]">
+            <Shield size={14} className="mr-2" /> Drug Safety
+          </TabsTrigger>
+          <TabsTrigger value="recovery" className="rounded-lg data-[state=active]:bg-[#E8F5F1] data-[state=active]:text-[#0D7A5F]">
+            <HeartPulse size={14} className="mr-2" /> Recovery Plan
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Stats + Empty/List section */}
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={24} color="#0D7A5F" className="animate-spin" /></div>
-      ) : reports.length === 0 ? (
-        <EmptyState onUpload={() => fileInputRef.current?.click()} />
-      ) : (
-        <>
-          <ReportStats reports={reports} />
-        </>  
-      )}
-
-      {/* List */}
-      {!loading && reports.length > 0 && (
-        <div className="space-y-3 mt-6">
-          {reports.map((r) => (
-            <div key={r.id} className="card-base p-4 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: "#E8F5F1" }}>
-                <FileText size={18} color="#0D7A5F" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate" style={{ color: "#1A2332" }}>{r.name}</div>
-                <div className="text-xs mt-0.5 flex items-center gap-2" style={{ color: "#6B7280" }}>
-                  {new Date(r.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                  {r.file_url && (
-                    <a href={r.file_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 hover:underline" style={{ color: "#0D7A5F" }}
-                      onClick={(e) => e.stopPropagation()}>
-                      <ExternalLink size={11} /> Open
-                    </a>
-                  )}
-                </div>
-              </div>
-              <StatusBadge status={r.status} />
-              <button onClick={() => setOpen(r)}
-                className="h-9 px-3 rounded-md border text-xs font-semibold whitespace-nowrap"
-                style={{ borderColor: "#0D7A5F", color: "#0D7A5F" }}>
-                View Analysis
-              </button>
+        <TabsContent value="reports">
+          <div
+            onClick={() => !busy && fileInputRef.current?.click()}
+            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && !busy) handleFile(f); }}
+            onDragOver={(e) => e.preventDefault()}
+            className="rounded-xl border-2 border-dashed py-10 text-center cursor-pointer transition-colors hover:bg-[#F0FDF9] hover:border-[#0D7A5F] mb-6"
+            style={{ borderColor: busy ? "#0D7A5F" : "#D1D5DB", background: "#FFFFFF" }}>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ background: "#E8F5F1" }}>
+              {busy ? <Loader2 size={22} color="#0D7A5F" className="animate-spin" /> : <UploadCloud size={22} color="#0D7A5F" />}
             </div>
-          ))}
-        </div>
-      )}
+            <div className="text-sm font-medium" style={{ color: "#374151" }}>
+              {busy ? STAGE_LABEL[stage] : "Drag & drop or click to upload"}
+            </div>
+            {busy && (
+              <div className="flex justify-center gap-2 mt-3">
+                {(["uploading", "converting", "analyzing", "saving"] as Stage[]).map((s, i) => {
+                  const stageOrder = ["uploading", "converting", "analyzing", "saving"];
+                  const done = stageOrder.indexOf(stage) > i;
+                  const active = stage === s;
+                  return (
+                    <div key={s} className="flex items-center gap-1">
+                      <span className={`w-2 h-2 rounded-full transition-all ${active ? "bg-[#0D7A5F] scale-125" : done ? "bg-[#0D7A5F] opacity-40" : "bg-gray-200"}`} />
+                      {i < 3 && <span style={{ color: "#D1D5DB", fontSize: 10 }}>—</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {!busy && <div className="text-xs mt-1" style={{ color: "#6B7280" }}>PDF, JPG, PNG · Max 10MB · Vision AI analysis</div>}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-16"><Loader2 size={24} color="#0D7A5F" className="animate-spin" /></div>
+          ) : reports.length === 0 ? (
+            <EmptyState onUpload={() => fileInputRef.current?.click()} />
+          ) : (
+            <><ReportStats reports={reports} /></>
+          )}
+
+          {!loading && reports.length > 0 && (
+            <div className="space-y-3 mt-6">
+              {reports.map((r) => (
+                <div key={r.id} className="card-base p-4 flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: "#E8F5F1" }}>
+                    <FileText size={18} color="#0D7A5F" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate" style={{ color: "#1A2332" }}>{r.name}</div>
+                    <div className="text-xs mt-0.5 flex items-center gap-2" style={{ color: "#6B7280" }}>
+                      {new Date(r.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      {r.file_url && (
+                        <a href={r.file_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 hover:underline" style={{ color: "#0D7A5F" }}
+                          onClick={(e) => e.stopPropagation()}>
+                          <ExternalLink size={11} /> Open
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <StatusBadge status={r.status} />
+                  <button onClick={() => setOpen(r)}
+                    className="h-9 px-3 rounded-md border text-xs font-semibold whitespace-nowrap"
+                    style={{ borderColor: "#0D7A5F", color: "#0D7A5F" }}>
+                    View Analysis
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="vault">
+          <div className="card-base p-8 text-center">
+            <Vault size={28} color="#0D7A5F" className="mx-auto mb-3" />
+            <h2 className="text-lg font-semibold" style={{ color: "#1A2332" }}>Health Vault</h2>
+            <p className="text-sm mt-2" style={{ color: "#6B7280" }}>The long-term document archive is being wired into this tab so discharge summaries, prescriptions, scans, and insurance records stay organized.</p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="drug">
+          <DrugSafetyContent />
+        </TabsContent>
+
+        <TabsContent value="recovery">
+          <div className="card-base p-8 text-center">
+            <HeartPulse size={28} color="#0D7A5F" className="mx-auto mb-3" />
+            <h2 className="text-lg font-semibold" style={{ color: "#1A2332" }}>Recovery Plan</h2>
+            <p className="text-sm mt-2" style={{ color: "#6B7280" }}>Your discharge-based 90-day protocol will appear here once a summary is uploaded and parsed.</p>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {open && <AnalysisDrawer report={open} onClose={() => setOpen(null)} />}
     </div>

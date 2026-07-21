@@ -3,7 +3,7 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
-export type UserRole = "patient" | "doctor" | "admin";
+export type UserRole = "patient" | "doctor" | "admin" | "caregiver";
 export type GenderType = "Male" | "Female" | "Other";
 export type RiskLevelDB = "HIGH" | "MODERATE" | "STABLE";
 export type MedStatus = "Taken" | "Pending" | "Missed";
@@ -12,6 +12,10 @@ export type DocStatus = "pending_review" | "approved" | "rejected";
 export type AppointmentStatus = "pending" | "approved" | "rejected" | "cancelled" | "completed";
 export type AppointmentMode = "online" | "offline";
 export type VitalType = "blood_sugar" | "blood_pressure" | "heart_rate" | "steps" | "weight" | "spo2";
+export type AlertSeverity = "MODERATE" | "HIGH" | "CRITICAL";
+export type CheckinStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "ESCALATED" | "MISSED";
+export type EligibilityStatus = "ELIGIBLE" | "LIKELY_ELIGIBLE" | "NOT_ELIGIBLE";
+export type VaultCategory = "lab_report" | "discharge" | "prescription" | "scan" | "vaccination" | "insurance" | "govt_card" | "other";
 
 export interface Database {
   public: {
@@ -177,6 +181,144 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["chat_messages"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["chat_messages"]["Insert"]>;
+      };
+      health_vault: {
+        Row: {
+          id: string;
+          user_id: string;
+          file_name: string;
+          file_url: string;
+          category: VaultCategory;
+          document_date: string | null;
+          uploaded_by: "self" | "doctor" | "hospital";
+          tags: string[] | null;
+          ai_summary: Json | null;
+          file_size: number | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["health_vault"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["health_vault"]["Insert"]>;
+      };
+      discharge_protocols: {
+        Row: {
+          id: string;
+          user_id: string;
+          health_vault_id: string | null;
+          raw_text: string | null;
+          parsed_data: Json;
+          activated: boolean;
+          activated_at: string | null;
+          protocol_end_date: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["discharge_protocols"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["discharge_protocols"]["Insert"]>;
+      };
+      aara_scheduled_checkins: {
+        Row: {
+          id: string;
+          user_id: string;
+          protocol_id: string | null;
+          day_number: number;
+          scheduled_date: string;
+          priority: "HIGH" | "ROUTINE";
+          questions: Json;
+          escalate_if: string;
+          status: CheckinStatus;
+          response_data: Json | null;
+          completed_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["aara_scheduled_checkins"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["aara_scheduled_checkins"]["Insert"]>;
+      };
+      alert_escalations: {
+        Row: {
+          id: string;
+          user_id: string;
+          trigger_type: string;
+          trigger_value: string;
+          severity: AlertSeverity;
+          steps: Json;
+          current_step: number;
+          resolved: boolean;
+          resolved_by: "patient" | "doctor" | "caregiver" | "auto" | null;
+          resolved_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["alert_escalations"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["alert_escalations"]["Insert"]>;
+      };
+      drug_interaction_checks: {
+        Row: {
+          id: string;
+          user_id: string;
+          drugs_checked: Json;
+          interactions_found: Json | null;
+          checked_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["drug_interaction_checks"]["Row"], "id">;
+        Update: Partial<Database["public"]["Tables"]["drug_interaction_checks"]["Insert"]>;
+      };
+      scheme_applications: {
+        Row: {
+          id: string;
+          user_id: string;
+          scheme_name: string;
+          eligibility_status: EligibilityStatus;
+          applied: boolean;
+          applied_at: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["scheme_applications"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["scheme_applications"]["Insert"]>;
+      };
+      record_shares: {
+        Row: {
+          id: string;
+          patient_id: string;
+          token: string;
+          doctor_name: string | null;
+          doctor_contact: string | null;
+          share_categories: Json;
+          expires_at: string | null;
+          accessed_at: string | null;
+          access_count: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["record_shares"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["record_shares"]["Insert"]>;
+      };
+      caregivers: {
+        Row: {
+          id: string;
+          caregiver_id: string;
+          patient_id: string;
+          relationship: string | null;
+          is_active: boolean;
+          linked_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["caregivers"]["Row"], "id">;
+        Update: Partial<Database["public"]["Tables"]["caregivers"]["Insert"]>;
+      };
+      caregiver_observations: {
+        Row: {
+          id: string;
+          caregiver_id: string;
+          patient_id: string;
+          observation_date: string;
+          mood: "good" | "okay" | "poor" | null;
+          appetite: "good" | "reduced" | "very_poor" | null;
+          energy: "normal" | "low" | "very_low" | null;
+          pain_level: number | null;
+          confusion_noted: boolean;
+          free_text: string | null;
+          ai_flag: boolean;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["caregiver_observations"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["caregiver_observations"]["Insert"]>;
       };
       appointments: {
         Row: {

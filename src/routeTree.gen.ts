@@ -18,10 +18,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiVapiCallRouteImport } from './routes/api/vapi-call'
 import { Route as ApiMedAnalysisRouteImport } from './routes/api/med-analysis'
+import { Route as ApiDrugInteractionRouteImport } from './routes/api/drug-interaction'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAnalyzeReportRouteImport } from './routes/api/analyze-report'
 import { Route as PatientReportsRouteImport } from './routes/_patient.reports'
 import { Route as PatientProfileRouteImport } from './routes/_patient.profile'
+import { Route as PatientDrugSafetyRouteImport } from './routes/_patient.drug-safety'
 import { Route as PatientDashboardRouteImport } from './routes/_patient.dashboard'
 import { Route as PatientCarePlanRouteImport } from './routes/_patient.care-plan'
 import { Route as PatientAppointmentsRouteImport } from './routes/_patient.appointments'
@@ -78,6 +80,11 @@ const ApiMedAnalysisRoute = ApiMedAnalysisRouteImport.update({
   path: '/api/med-analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDrugInteractionRoute = ApiDrugInteractionRouteImport.update({
+  id: '/api/drug-interaction',
+  path: '/api/drug-interaction',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -96,6 +103,11 @@ const PatientReportsRoute = PatientReportsRouteImport.update({
 const PatientProfileRoute = PatientProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => PatientRoute,
+} as any)
+const PatientDrugSafetyRoute = PatientDrugSafetyRouteImport.update({
+  id: '/drug-safety',
+  path: '/drug-safety',
   getParentRoute: () => PatientRoute,
 } as any)
 const PatientDashboardRoute = PatientDashboardRouteImport.update({
@@ -175,10 +187,12 @@ export interface FileRoutesByFullPath {
   '/appointments': typeof PatientAppointmentsRoute
   '/care-plan': typeof PatientCarePlanRoute
   '/dashboard': typeof PatientDashboardRoute
+  '/drug-safety': typeof PatientDrugSafetyRoute
   '/profile': typeof PatientProfileRoute
   '/reports': typeof PatientReportsRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/drug-interaction': typeof ApiDrugInteractionRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -200,10 +214,12 @@ export interface FileRoutesByTo {
   '/appointments': typeof PatientAppointmentsRoute
   '/care-plan': typeof PatientCarePlanRoute
   '/dashboard': typeof PatientDashboardRoute
+  '/drug-safety': typeof PatientDrugSafetyRoute
   '/profile': typeof PatientProfileRoute
   '/reports': typeof PatientReportsRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/drug-interaction': typeof ApiDrugInteractionRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -229,10 +245,12 @@ export interface FileRoutesById {
   '/_patient/appointments': typeof PatientAppointmentsRoute
   '/_patient/care-plan': typeof PatientCarePlanRoute
   '/_patient/dashboard': typeof PatientDashboardRoute
+  '/_patient/drug-safety': typeof PatientDrugSafetyRoute
   '/_patient/profile': typeof PatientProfileRoute
   '/_patient/reports': typeof PatientReportsRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/drug-interaction': typeof ApiDrugInteractionRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -256,10 +274,12 @@ export interface FileRouteTypes {
     | '/appointments'
     | '/care-plan'
     | '/dashboard'
+    | '/drug-safety'
     | '/profile'
     | '/reports'
     | '/api/analyze-report'
     | '/api/chat'
+    | '/api/drug-interaction'
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
@@ -281,10 +301,12 @@ export interface FileRouteTypes {
     | '/appointments'
     | '/care-plan'
     | '/dashboard'
+    | '/drug-safety'
     | '/profile'
     | '/reports'
     | '/api/analyze-report'
     | '/api/chat'
+    | '/api/drug-interaction'
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
@@ -309,10 +331,12 @@ export interface FileRouteTypes {
     | '/_patient/appointments'
     | '/_patient/care-plan'
     | '/_patient/dashboard'
+    | '/_patient/drug-safety'
     | '/_patient/profile'
     | '/_patient/reports'
     | '/api/analyze-report'
     | '/api/chat'
+    | '/api/drug-interaction'
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
@@ -335,6 +359,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ApiAnalyzeReportRoute: typeof ApiAnalyzeReportRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiDrugInteractionRoute: typeof ApiDrugInteractionRoute
   ApiMedAnalysisRoute: typeof ApiMedAnalysisRoute
   ApiVapiCallRoute: typeof ApiVapiCallRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -407,6 +432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMedAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/drug-interaction': {
+      id: '/api/drug-interaction'
+      path: '/api/drug-interaction'
+      fullPath: '/api/drug-interaction'
+      preLoaderRoute: typeof ApiDrugInteractionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -433,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof PatientProfileRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/_patient/drug-safety': {
+      id: '/_patient/drug-safety'
+      path: '/drug-safety'
+      fullPath: '/drug-safety'
+      preLoaderRoute: typeof PatientDrugSafetyRouteImport
       parentRoute: typeof PatientRoute
     }
     '/_patient/dashboard': {
@@ -575,6 +614,7 @@ interface PatientRouteChildren {
   PatientAppointmentsRoute: typeof PatientAppointmentsRoute
   PatientCarePlanRoute: typeof PatientCarePlanRoute
   PatientDashboardRoute: typeof PatientDashboardRoute
+  PatientDrugSafetyRoute: typeof PatientDrugSafetyRoute
   PatientProfileRoute: typeof PatientProfileRoute
   PatientReportsRoute: typeof PatientReportsRoute
 }
@@ -584,6 +624,7 @@ const PatientRouteChildren: PatientRouteChildren = {
   PatientAppointmentsRoute: PatientAppointmentsRoute,
   PatientCarePlanRoute: PatientCarePlanRoute,
   PatientDashboardRoute: PatientDashboardRoute,
+  PatientDrugSafetyRoute: PatientDrugSafetyRoute,
   PatientProfileRoute: PatientProfileRoute,
   PatientReportsRoute: PatientReportsRoute,
 }
@@ -600,6 +641,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ApiAnalyzeReportRoute: ApiAnalyzeReportRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiDrugInteractionRoute: ApiDrugInteractionRoute,
   ApiMedAnalysisRoute: ApiMedAnalysisRoute,
   ApiVapiCallRoute: ApiVapiCallRoute,
   AuthCallbackRoute: AuthCallbackRoute,
