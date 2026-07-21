@@ -1,13 +1,16 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Users, User, PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Users, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays } from "lucide-react";
 import { MedSevaLogo } from "./MedSevaLogo";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth, signOut } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 const items = [
-  { to: "/doctor", label: "Patient Queue", icon: Users },
-  { to: "/doctor/profile", label: "Profile", icon: User },
+  { to: "/doctor",              label: "Patient Queue",  icon: Users,        requiresApproval: true },
+  { to: "/doctor/appointments", label: "Appointments",   icon: CalendarDays, requiresApproval: true },
+  { to: "/doctor/profile",      label: "Profile",        icon: User,         requiresApproval: false },
 ];
 
 function DoctorSidebarInner() {
@@ -15,6 +18,19 @@ function DoctorSidebarInner() {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const { profile } = useAuth();
+  const navigate = useNavigate({ from: "/" });
+  const [isApproved, setIsApproved] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("doctor_profiles")
+        .select("verification_status")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => setIsApproved(data?.verification_status === "approved"));
+    });
+  }, []);
 
   const displayName = profile?.full_name ?? "Doctor";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -61,21 +77,43 @@ function DoctorSidebarInner() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
-          {items.map(({ to, label, icon: Icon }) => {
+          {items.map(({ to, label, icon: Icon, requiresApproval }) => {
+            const locked = requiresApproval && !isApproved;
             const active =
-              pathname === to ||
-              (to === "/doctor" &&
-                pathname.startsWith("/doctor") &&
-                pathname !== "/doctor/profile");
+              !locked &&
+              (pathname === to ||
+                (to === "/doctor" &&
+                  pathname.startsWith("/doctor") &&
+                  pathname !== "/doctor/profile" &&
+                  pathname !== "/doctor/appointments"));
 
-            const btn = (
-              <Link
-                to={to}
-                className="relative flex items-center rounded-lg transition-colors"
+            const btn = locked ? (
+              <Tooltip key={to}>
+                <TooltipTrigger asChild>
+                  <div
+                    className="relative flex items-center rounded-lg cursor-not-allowed opacity-40"
+                    style={{
+                      height: 44, gap: 12, marginBottom: 2,
+                      marginLeft: isCollapsed ? "auto" : 8,
+                      marginRight: isCollapsed ? "auto" : 8,
+                      paddingLeft: isCollapsed ? 0 : 12,
+                      paddingRight: isCollapsed ? 0 : 12,
+                      width: isCollapsed ? 40 : "auto",
+                      justifyContent: isCollapsed ? "center" : undefined,
+                    }}
+                  >
+                    <Icon size={18} color="#8A94A6" style={{ flexShrink: 0 }} />
+                    {!isCollapsed && <span className="text-sm font-medium truncate">{label}</span>}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">Available after approval</TooltipContent>
+              </Tooltip>
+            ) : (
+              <button
+                onClick={() => navigate({ to: to as any, replace: false })}
+                className="relative flex items-center rounded-lg transition-colors w-full text-left"
                 style={{
-                  height: 44,
-                  gap: 12,
-                  marginBottom: 2,
+                  height: 44, gap: 12, marginBottom: 2,
                   marginLeft: isCollapsed ? "auto" : 8,
                   marginRight: isCollapsed ? "auto" : 8,
                   paddingLeft: isCollapsed ? 0 : 12,
@@ -87,19 +125,15 @@ function DoctorSidebarInner() {
                 }}
               >
                 {active && !isCollapsed && (
-                  <span
-                    className="absolute left-0 top-2 bottom-2 rounded-r"
-                    style={{ width: 3, background: "#0D7A5F" }}
-                  />
+                  <span className="absolute left-0 top-2 bottom-2 rounded-r"
+                    style={{ width: 3, background: "#0D7A5F" }} />
                 )}
                 <Icon size={18} color={active ? "#0D7A5F" : "#8A94A6"} style={{ flexShrink: 0 }} />
-                {!isCollapsed && (
-                  <span className="text-sm font-medium truncate">{label}</span>
-                )}
-              </Link>
+                {!isCollapsed && <span className="text-sm font-medium truncate">{label}</span>}
+              </button>
             );
 
-            return isCollapsed ? (
+            return isCollapsed && !locked ? (
               <Tooltip key={to}>
                 <TooltipTrigger asChild>{btn}</TooltipTrigger>
                 <TooltipContent side="right">{label}</TooltipContent>

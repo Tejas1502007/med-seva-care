@@ -67,7 +67,7 @@ export default function Navbar() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled
-            ? "bg-white/80 backdrop-blur-2xl shadow-lg shadow-slate-900/5 border-b border-white/40"
+            ? "bg-white/80 backdrop-blur-2xl shadow-lg shadow-slate-900/5 border-b border-white/40 dark:bg-slate-900/80 dark:shadow-slate-950/40 dark:border-slate-800/70"
             : "bg-transparent"
         }`}
       >
@@ -90,8 +90,8 @@ export default function Navbar() {
                   href={link.href}
                   className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                     activeSection === link.href?.replace("#", "")
-                      ? "text-blue-600 bg-blue-50"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
+                      ? "text-blue-600 bg-blue-50 dark:text-teal-300 dark:bg-slate-800/80"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80"
                   }`}
                 >
                   {link.label}

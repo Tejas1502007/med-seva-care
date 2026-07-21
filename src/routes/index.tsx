@@ -50,7 +50,7 @@ function SectionLoader() {
 function LandingPage() {
   return (
     <ThemeProvider>
-      <div className="bg-[#F8FAFC] dark:bg-[#0A0F1A] text-[#0F172A] dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300">
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] text-[#0F172A] dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300">
 
         {/* ── Global utilities (no UI) ─────────────────────── */}
         <Suspense fallback={null}><PagePreloader /></Suspense>

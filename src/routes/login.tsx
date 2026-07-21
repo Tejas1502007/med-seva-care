@@ -32,13 +32,22 @@ function LoginPage() {
       }
       if (!data.user) { toast.error("Login failed. Please try again."); setLoading(false); return; }
 
-      let userRole = (data.user.user_metadata?.role as string) ?? null;
-      if (!userRole) {
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
-        userRole = profile?.role ?? "patient";
-      }
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
 
-      navigate({ to: userRole === "doctor" ? "/doctor" : "/dashboard" });
+      const userRole = profileData?.role ?? "patient";
+
+      // Hard redirect — clears all cached route state
+      if (userRole === "admin") {
+        window.location.href = "/admin/";
+      } else if (userRole === "doctor") {
+        window.location.href = "/doctor";
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch {
       toast.error("An unexpected error occurred");
       setLoading(false);

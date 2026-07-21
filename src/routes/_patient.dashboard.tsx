@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Droplet, HeartPulse, Pill, Footprints, Sparkles,
@@ -12,7 +12,6 @@ import {
 import { StatCard } from "@/components/StatCard";
 import { RiskBadge } from "@/components/RiskBadge";
 import { RealtimeVitalsGraph } from "@/components/RealtimeVitalsGraph";
-import { medications as mockMeds } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import type { RiskLevel } from "@/lib/mock-data";
 
@@ -52,52 +51,58 @@ const EMPTY: DashboardData = {
 
 function Dashboard() {
   const [view, setView] = useState<"sugar" | "bp">("sugar");
-  const [meds, setMeds] = useState(mockMeds);
+  const [meds, setMeds] = useState<{ id: string; name: string; quantity: number; unit: string; times: string[]; status: string; streak: number }[]>([]);
   const [data, setData] = useState<DashboardData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      userIdRef.current = user.id;
+      if (!user || cancelled) return;
       setUserId(user.id);
-      await refresh(user.id);
+      await Promise.all([refresh(user.id), loadMeds(user.id)]);
+      if (cancelled) return;
       setLoading(false);
 
-      // Realtime: filter by current user only
+      // Remove any existing channel with this name before subscribing
+      const channelName = `dashboard:${user.id}`;
+      await supabase.removeChannel(supabase.channel(channelName));
+
       channel = supabase
-        .channel(`dashboard:${user.id}`)
+        .channel(channelName)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "vitals", filter: `patient_id=eq.${user.id}` },
-          () => refresh(user.id)
+          () => { if (!cancelled) refresh(user.id); }
         )
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "patient_profiles", filter: `id=eq.${user.id}` },
-          () => refresh(user.id)
+          () => { if (!cancelled) refresh(user.id); }
         )
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "health_reports", filter: `patient_id=eq.${user.id}` },
-          () => refresh(user.id)
+          () => { if (!cancelled) refresh(user.id); }
         )
         .subscribe();
     };
 
     init();
-    return () => { if (channel) supabase.removeChannel(channel); };
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const refresh = async (userId: string) => {
     const [profileRes, patientRes, vitalsRes, reportRes] = await Promise.all([
-      supabase.from("profiles").select("full_name").eq("id", userId).single(),
-      supabase.from("patient_profiles").select("risk_level, risk_score").eq("id", userId).single(),
+      supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+      supabase.from("patient_profiles").select("risk_level, risk_score").eq("id", userId).maybeSingle(),
       supabase.from("vitals")
         .select("type, value, unit, notes, recorded_at")
         .eq("patient_id", userId)
@@ -164,8 +169,27 @@ function Dashboard() {
     });
   };
 
+  const loadMeds = async (uid: string) => {
+    const { data } = await supabase
+      .from("medications")
+      .select("id, name, quantity, unit, times, time, streak, is_active")
+      .eq("patient_id", uid)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    if (data) {
+      setMeds(data.map((m) => ({
+        id: m.id,
+        name: m.name,
+        quantity: m.quantity ?? 1,
+        unit: m.unit ?? "tablet",
+        times: m.times?.length ? m.times : [m.time ?? "09:00"],
+        status: "Pending",
+        streak: m.streak ?? 0,
+      })));
+    }
+  };
+
   const markTaken = async (id: string, name: string) => {
-    const userIdRef = useRef<string | null>(null);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       toast.error("Not authenticated");

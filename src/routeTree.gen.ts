@@ -13,6 +13,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PatientRouteImport } from './routes/_patient'
 import { Route as DoctorRouteImport } from './routes/_doctor'
+import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiVapiCallRouteImport } from './routes/api/vapi-call'
@@ -23,11 +24,16 @@ import { Route as PatientReportsRouteImport } from './routes/_patient.reports'
 import { Route as PatientProfileRouteImport } from './routes/_patient.profile'
 import { Route as PatientDashboardRouteImport } from './routes/_patient.dashboard'
 import { Route as PatientCarePlanRouteImport } from './routes/_patient.care-plan'
+import { Route as PatientAppointmentsRouteImport } from './routes/_patient.appointments'
 import { Route as PatientAaraRouteImport } from './routes/_patient.aara'
 import { Route as DoctorDoctorRouteImport } from './routes/_doctor.doctor'
+import { Route as AdminAdminIndexRouteImport } from './routes/_admin.admin.index'
 import { Route as ApiNutritionSearchRouteImport } from './routes/api/nutrition/search'
 import { Route as ApiNutritionGeneratePlanRouteImport } from './routes/api/nutrition/generate-plan'
 import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor.doctor.profile'
+import { Route as DoctorDoctorAppointmentsRouteImport } from './routes/_doctor.doctor.appointments'
+import { Route as AdminAdminPatientsRouteImport } from './routes/_admin.admin.patients'
+import { Route as AdminAdminDoctorsRouteImport } from './routes/_admin.admin.doctors'
 import { Route as DoctorDoctorPatientIdRouteImport } from './routes/_doctor.doctor.patient.$id'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -46,6 +52,10 @@ const PatientRoute = PatientRouteImport.update({
 } as any)
 const DoctorRoute = DoctorRouteImport.update({
   id: '/_doctor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/_admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -98,6 +108,11 @@ const PatientCarePlanRoute = PatientCarePlanRouteImport.update({
   path: '/care-plan',
   getParentRoute: () => PatientRoute,
 } as any)
+const PatientAppointmentsRoute = PatientAppointmentsRouteImport.update({
+  id: '/appointments',
+  path: '/appointments',
+  getParentRoute: () => PatientRoute,
+} as any)
 const PatientAaraRoute = PatientAaraRouteImport.update({
   id: '/aara',
   path: '/aara',
@@ -107,6 +122,11 @@ const DoctorDoctorRoute = DoctorDoctorRouteImport.update({
   id: '/doctor',
   path: '/doctor',
   getParentRoute: () => DoctorRoute,
+} as any)
+const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const ApiNutritionSearchRoute = ApiNutritionSearchRouteImport.update({
   id: '/api/nutrition/search',
@@ -124,6 +144,22 @@ const DoctorDoctorProfileRoute = DoctorDoctorProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => DoctorDoctorRoute,
 } as any)
+const DoctorDoctorAppointmentsRoute =
+  DoctorDoctorAppointmentsRouteImport.update({
+    id: '/appointments',
+    path: '/appointments',
+    getParentRoute: () => DoctorDoctorRoute,
+  } as any)
+const AdminAdminPatientsRoute = AdminAdminPatientsRouteImport.update({
+  id: '/admin/patients',
+  path: '/admin/patients',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAdminDoctorsRoute = AdminAdminDoctorsRouteImport.update({
+  id: '/admin/doctors',
+  path: '/admin/doctors',
+  getParentRoute: () => AdminRoute,
+} as any)
 const DoctorDoctorPatientIdRoute = DoctorDoctorPatientIdRouteImport.update({
   id: '/patient/$id',
   path: '/patient/$id',
@@ -136,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/doctor': typeof DoctorDoctorRouteWithChildren
   '/aara': typeof PatientAaraRoute
+  '/appointments': typeof PatientAppointmentsRoute
   '/care-plan': typeof PatientCarePlanRoute
   '/dashboard': typeof PatientDashboardRoute
   '/profile': typeof PatientProfileRoute
@@ -145,9 +182,13 @@ export interface FileRoutesByFullPath {
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/admin/doctors': typeof AdminAdminDoctorsRoute
+  '/admin/patients': typeof AdminAdminPatientsRoute
+  '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
+  '/admin/': typeof AdminAdminIndexRoute
   '/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
 export interface FileRoutesByTo {
@@ -156,6 +197,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/doctor': typeof DoctorDoctorRouteWithChildren
   '/aara': typeof PatientAaraRoute
+  '/appointments': typeof PatientAppointmentsRoute
   '/care-plan': typeof PatientCarePlanRoute
   '/dashboard': typeof PatientDashboardRoute
   '/profile': typeof PatientProfileRoute
@@ -165,20 +207,26 @@ export interface FileRoutesByTo {
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/admin/doctors': typeof AdminAdminDoctorsRoute
+  '/admin/patients': typeof AdminAdminPatientsRoute
+  '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
+  '/admin': typeof AdminAdminIndexRoute
   '/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_admin': typeof AdminRouteWithChildren
   '/_doctor': typeof DoctorRouteWithChildren
   '/_patient': typeof PatientRouteWithChildren
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/_doctor/doctor': typeof DoctorDoctorRouteWithChildren
   '/_patient/aara': typeof PatientAaraRoute
+  '/_patient/appointments': typeof PatientAppointmentsRoute
   '/_patient/care-plan': typeof PatientCarePlanRoute
   '/_patient/dashboard': typeof PatientDashboardRoute
   '/_patient/profile': typeof PatientProfileRoute
@@ -188,9 +236,13 @@ export interface FileRoutesById {
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_admin/admin/doctors': typeof AdminAdminDoctorsRoute
+  '/_admin/admin/patients': typeof AdminAdminPatientsRoute
+  '/_doctor/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
+  '/_admin/admin/': typeof AdminAdminIndexRoute
   '/_doctor/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
 export interface FileRouteTypes {
@@ -201,6 +253,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/doctor'
     | '/aara'
+    | '/appointments'
     | '/care-plan'
     | '/dashboard'
     | '/profile'
@@ -210,9 +263,13 @@ export interface FileRouteTypes {
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
+    | '/admin/doctors'
+    | '/admin/patients'
+    | '/doctor/appointments'
     | '/doctor/profile'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
+    | '/admin/'
     | '/doctor/patient/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -221,6 +278,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/doctor'
     | '/aara'
+    | '/appointments'
     | '/care-plan'
     | '/dashboard'
     | '/profile'
@@ -230,19 +288,25 @@ export interface FileRouteTypes {
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
+    | '/admin/doctors'
+    | '/admin/patients'
+    | '/doctor/appointments'
     | '/doctor/profile'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
+    | '/admin'
     | '/doctor/patient/$id'
   id:
     | '__root__'
     | '/'
+    | '/_admin'
     | '/_doctor'
     | '/_patient'
     | '/login'
     | '/onboarding'
     | '/_doctor/doctor'
     | '/_patient/aara'
+    | '/_patient/appointments'
     | '/_patient/care-plan'
     | '/_patient/dashboard'
     | '/_patient/profile'
@@ -252,14 +316,19 @@ export interface FileRouteTypes {
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
+    | '/_admin/admin/doctors'
+    | '/_admin/admin/patients'
+    | '/_doctor/doctor/appointments'
     | '/_doctor/doctor/profile'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
+    | '/_admin/admin/'
     | '/_doctor/doctor/patient/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   DoctorRoute: typeof DoctorRouteWithChildren
   PatientRoute: typeof PatientRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -301,6 +370,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof DoctorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_admin': {
+      id: '/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -373,6 +449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientCarePlanRouteImport
       parentRoute: typeof PatientRoute
     }
+    '/_patient/appointments': {
+      id: '/_patient/appointments'
+      path: '/appointments'
+      fullPath: '/appointments'
+      preLoaderRoute: typeof PatientAppointmentsRouteImport
+      parentRoute: typeof PatientRoute
+    }
     '/_patient/aara': {
       id: '/_patient/aara'
       path: '/aara'
@@ -386,6 +469,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/doctor'
       preLoaderRoute: typeof DoctorDoctorRouteImport
       parentRoute: typeof DoctorRoute
+    }
+    '/_admin/admin/': {
+      id: '/_admin/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminAdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/api/nutrition/search': {
       id: '/api/nutrition/search'
@@ -408,6 +498,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DoctorDoctorProfileRouteImport
       parentRoute: typeof DoctorDoctorRoute
     }
+    '/_doctor/doctor/appointments': {
+      id: '/_doctor/doctor/appointments'
+      path: '/appointments'
+      fullPath: '/doctor/appointments'
+      preLoaderRoute: typeof DoctorDoctorAppointmentsRouteImport
+      parentRoute: typeof DoctorDoctorRoute
+    }
+    '/_admin/admin/patients': {
+      id: '/_admin/admin/patients'
+      path: '/admin/patients'
+      fullPath: '/admin/patients'
+      preLoaderRoute: typeof AdminAdminPatientsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/admin/doctors': {
+      id: '/_admin/admin/doctors'
+      path: '/admin/doctors'
+      fullPath: '/admin/doctors'
+      preLoaderRoute: typeof AdminAdminDoctorsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_doctor/doctor/patient/$id': {
       id: '/_doctor/doctor/patient/$id'
       path: '/patient/$id'
@@ -418,12 +529,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminAdminDoctorsRoute: typeof AdminAdminDoctorsRoute
+  AdminAdminPatientsRoute: typeof AdminAdminPatientsRoute
+  AdminAdminIndexRoute: typeof AdminAdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAdminDoctorsRoute: AdminAdminDoctorsRoute,
+  AdminAdminPatientsRoute: AdminAdminPatientsRoute,
+  AdminAdminIndexRoute: AdminAdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface DoctorDoctorRouteChildren {
+  DoctorDoctorAppointmentsRoute: typeof DoctorDoctorAppointmentsRoute
   DoctorDoctorProfileRoute: typeof DoctorDoctorProfileRoute
   DoctorDoctorPatientIdRoute: typeof DoctorDoctorPatientIdRoute
 }
 
 const DoctorDoctorRouteChildren: DoctorDoctorRouteChildren = {
+  DoctorDoctorAppointmentsRoute: DoctorDoctorAppointmentsRoute,
   DoctorDoctorProfileRoute: DoctorDoctorProfileRoute,
   DoctorDoctorPatientIdRoute: DoctorDoctorPatientIdRoute,
 }
@@ -445,6 +572,7 @@ const DoctorRouteWithChildren =
 
 interface PatientRouteChildren {
   PatientAaraRoute: typeof PatientAaraRoute
+  PatientAppointmentsRoute: typeof PatientAppointmentsRoute
   PatientCarePlanRoute: typeof PatientCarePlanRoute
   PatientDashboardRoute: typeof PatientDashboardRoute
   PatientProfileRoute: typeof PatientProfileRoute
@@ -453,6 +581,7 @@ interface PatientRouteChildren {
 
 const PatientRouteChildren: PatientRouteChildren = {
   PatientAaraRoute: PatientAaraRoute,
+  PatientAppointmentsRoute: PatientAppointmentsRoute,
   PatientCarePlanRoute: PatientCarePlanRoute,
   PatientDashboardRoute: PatientDashboardRoute,
   PatientProfileRoute: PatientProfileRoute,
@@ -464,6 +593,7 @@ const PatientRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   DoctorRoute: DoctorRouteWithChildren,
   PatientRoute: PatientRouteWithChildren,
   LoginRoute: LoginRoute,

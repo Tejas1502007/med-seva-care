@@ -146,7 +146,7 @@ export default function Hero() {
       id="hero"
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="relative min-h-screen flex items-center overflow-hidden bg-[#F8FAFC] pt-24 pb-16"
+      className="relative min-h-screen flex items-center overflow-hidden bg-[#F8FAFC] pt-24 pb-16 dark:bg-[#020617]"
     >
       {/* Aurora animated background */}
       <Suspense fallback={null}>

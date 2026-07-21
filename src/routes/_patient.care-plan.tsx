@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { medications, adherenceWeek } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import { CalorieTracker } from "@/components/CalorieTracker";
 
@@ -337,6 +336,8 @@ function CarePlan() {
 
 function MedsTab() {
   const [meds, setMeds] = useState<any[]>([]);
+  const [adherenceWeek, setAdherenceWeek] = useState<{ day: string; taken: number; missed: number }[]>([]);
+  const [adherencePct, setAdherencePct] = useState(0);
   const [form, setForm] = useState({ 
     name: "", 
     quantity: 1, 
@@ -358,19 +359,16 @@ function MedsTab() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setUserId(user.id);
-      // Load medications from database
       const { data, error } = await supabase
         .from("medications")
         .select("*")
         .eq("patient_id", user.id)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
-      
       if (error) {
         console.error("Error loading medications:", error);
         toast.error("Error loading medicines");
       } else if (data) {
-        // Map database records to component format
         setMeds(data.map((m: any) => ({
           id: m.id,
           name: m.name,
@@ -384,6 +382,36 @@ function MedsTab() {
           patient_id: m.patient_id,
         })));
       }
+
+      // Load last 7 days adherence from medication_logs
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const last7 = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return { label: days[d.getDay()], dateStr: d.toISOString().split("T")[0] };
+      });
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      const { data: logs } = await supabase
+        .from("medication_logs")
+        .select("status, logged_at")
+        .eq("patient_id", user.id)
+        .gte("logged_at", sevenDaysAgo.toISOString());
+
+      const adherence = last7.map(({ label, dateStr }) => {
+        const dayLogs = (logs ?? []).filter((l) => l.logged_at.startsWith(dateStr));
+        return {
+          day: label,
+          taken: dayLogs.filter((l) => l.status === "Taken").length,
+          missed: dayLogs.filter((l) => l.status === "Missed").length,
+        };
+      });
+      setAdherenceWeek(adherence);
+
+      const totalLogs = (logs ?? []).length;
+      const takenLogs = (logs ?? []).filter((l) => l.status === "Taken").length;
+      setAdherencePct(totalLogs > 0 ? Math.round((takenLogs / totalLogs) * 100) : 0);
     }
   };
 
@@ -766,7 +794,7 @@ function MedsTab() {
       <div className="card-base p-6 mt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold" style={{ color: "#1A2332" }}>This Week's Adherence</h3>
-          <div className="text-[28px] font-bold" style={{ color: "#0D7A5F" }}>85%</div>
+          <div className="text-[28px] font-bold" style={{ color: "#0D7A5F" }}>{adherencePct}%</div>
         </div>
         <div style={{ height: 200 }}>
           <ResponsiveContainer>

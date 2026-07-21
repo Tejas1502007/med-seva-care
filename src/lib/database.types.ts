@@ -3,12 +3,14 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
-export type UserRole = "patient" | "doctor";
+export type UserRole = "patient" | "doctor" | "admin";
 export type GenderType = "Male" | "Female" | "Other";
 export type RiskLevelDB = "HIGH" | "MODERATE" | "STABLE";
 export type MedStatus = "Taken" | "Pending" | "Missed";
 export type ReportStatus = "Analyzing" | "Analyzed" | "Flagged";
 export type DocStatus = "pending_review" | "approved" | "rejected";
+export type AppointmentStatus = "pending" | "approved" | "rejected" | "cancelled" | "completed";
+export type AppointmentMode = "online" | "offline";
 export type VitalType = "blood_sugar" | "blood_pressure" | "heart_rate" | "steps" | "weight" | "spo2";
 
 export interface Database {
@@ -32,14 +34,20 @@ export interface Database {
         Row: {
           id: string;
           age: number | null;
+          dob: string | null;
           gender: GenderType | null;
           blood_group: string | null;
+          height: number | null;
+          weight: number | null;
           language_pref: string;
           conditions: string[];
           allergies: string[];
+          addictions: string[];
           risk_level: RiskLevelDB;
           risk_score: number | null;
           emergency_contact: Json | null;
+          alternate_phone: string | null;
+          address: string | null;
           assigned_doctor_id: string | null;
           created_at: string;
           updated_at: string;
@@ -50,12 +58,20 @@ export interface Database {
       doctor_profiles: {
         Row: {
           id: string;
+          dob: string | null;
+          gender: string | null;
           registration_number: string;
           qualification: string;
           specialization: string;
           years_of_experience: number | null;
           hospital_clinic: string | null;
+          hospital_address: string | null;
+          consultation_fee: number | null;
+          consultation_type: "online" | "offline" | "both" | null;
           license_file_url: string | null;
+          degree_certificate_url: string | null;
+          government_id_url: string | null;
+          profile_completed: boolean;
           verification_status: DocStatus;
           verified_at: string | null;
           created_at: string;
@@ -161,6 +177,24 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["chat_messages"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["chat_messages"]["Insert"]>;
+      };
+      appointments: {
+        Row: {
+          id: string;
+          patient_id: string;
+          doctor_id: string;
+          appointment_date: string;   // ISO date string "YYYY-MM-DD"
+          appointment_time: string;   // "HH:MM:SS"
+          mode: AppointmentMode;
+          reason: string | null;
+          rejection_reason: string | null;
+          status: AppointmentStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["appointments"]["Row"], "id" | "created_at" | "updated_at">;
+        Update: Partial<Database["public"]["Tables"]["appointments"]["Insert"]>;
       };
     };
   };

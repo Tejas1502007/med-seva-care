@@ -49,6 +49,7 @@ function AuthCallback() {
 
           // Navigate based on role
           const role = profile?.role ?? session.user.user_metadata?.role ?? "patient";
+          if (role === "admin") { navigate({ to: "/admin/" }); return; }
           navigate({ to: role === "doctor" ? "/doctor" : "/dashboard" });
         } catch (profileErr) {
           console.error("Profile error:", profileErr);
