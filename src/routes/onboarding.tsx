@@ -48,13 +48,19 @@ function Onboarding() {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { role: role.toLowerCase(), full_name: email.split("@")[0] } },
+        email,
+        password,
+        options: {
+          data: {
+            role: role.toLowerCase(),
+            full_name: role === "Doctor" ? docName || email.split("@")[0] : fullName || email.split("@")[0],
+          },
+        },
       });
       if (error) { toast.error(error.message); setLoading(false); return false; }
       if (!data.user) { toast.error("Sign-up failed"); setLoading(false); return false; }
       setSignedUpUserId(data.user.id);
-      toast.success("Account created! Complete your profile.");
+      toast.success("Account created! Fill in your details.");
       setLoading(false);
       return true;
     } catch {
@@ -72,11 +78,21 @@ function Onboarding() {
         const { data: { user } } = await supabase.auth.getUser();
         userId = user?.id ?? null;
       }
-      if (!userId) { toast.error("Session not found"); setLoading(false); return false; }
+      if (!userId) { toast.error("Session not found. Please try signing in."); setLoading(false); return false; }
 
       if (role === "Patient") {
         if (!fullName) { toast.error("Please enter your full name"); setLoading(false); return false; }
         const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : null;
+
+        // Upsert the profiles row first with the correct role
+        await supabase.from("profiles").upsert({
+          id: userId,
+          role: "patient",
+          email: email,
+          full_name: fullName,
+          phone: phone || null,
+        });
+
         await supabase.from("patient_profiles").upsert({
           id: userId,
           age,
@@ -86,22 +102,46 @@ function Onboarding() {
           height: height ? parseFloat(height) : null,
           weight: weight ? parseFloat(weight) : null,
         } as never);
-        await supabase.from("profiles").update({ full_name: fullName, phone: phone || undefined }).eq("id", userId);
+
       } else {
-        if (!docName || !regNumber) { toast.error("Please fill in required fields"); setLoading(false); return false; }
+        // Doctor
+        if (!docName) { toast.error("Please enter your full name"); setLoading(false); return false; }
+        if (!regNumber) { toast.error("Please enter your registration number"); setLoading(false); return false; }
+
+        // Upsert the profiles row with role = 'doctor'
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: userId,
+          role: "doctor",
+          email: email,
+          full_name: docName,
+        });
+
+        if (profileError) {
+          console.error("Profile upsert error:", profileError);
+          // Try update instead if upsert fails (row may already exist)
+          await supabase.from("profiles").update({
+            role: "doctor",
+            full_name: docName,
+          }).eq("id", userId);
+        }
+
+        // Create the doctor_profiles row
         await supabase.from("doctor_profiles").upsert({
           id: userId,
           registration_number: regNumber,
           specialization: specialization || "General",
           qualification: "MBBS",
-          hospital_clinic: hospital || undefined,
+          hospital_clinic: hospital || null,
+          profile_completed: false,
+          verification_status: "pending_review",
         });
-        await supabase.from("profiles").update({ full_name: docName }).eq("id", userId);
       }
+
       setLoading(false);
       return true;
-    } catch {
-      toast.error("Failed to save profile");
+    } catch (err) {
+      console.error("saveProfile error:", err);
+      toast.error("Failed to save profile. Please try again.");
       setLoading(false);
       return false;
     }
@@ -117,13 +157,25 @@ function Onboarding() {
     if (step === 2) {
       const ok = await saveProfile();
       if (!ok) return;
+
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        toast.success("Welcome to MedSeva 🎉");
-        navigate({ to: role === "Doctor" ? "/doctor" : "/dashboard" });
+
+      if (role === "Doctor") {
+        if (session) {
+          toast.success("Account created! Complete your profile to get verified.");
+          window.location.href = "/doctor";
+        } else {
+          toast.success("Check your email to confirm your account, then sign in.");
+          navigate({ to: "/login" });
+        }
       } else {
-        toast.success("Check your email to confirm, then sign in.");
-        navigate({ to: "/login" });
+        if (session) {
+          toast.success("Welcome to MedSeva 🎉");
+          window.location.href = "/dashboard";
+        } else {
+          toast.success("Check your email to confirm your account, then sign in.");
+          navigate({ to: "/login" });
+        }
       }
     }
   };

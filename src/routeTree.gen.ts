@@ -31,6 +31,7 @@ import { Route as AdminAdminIndexRouteImport } from './routes/_admin.admin.index
 import { Route as ApiNutritionSearchRouteImport } from './routes/api/nutrition/search'
 import { Route as ApiNutritionGeneratePlanRouteImport } from './routes/api/nutrition/generate-plan'
 import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor.doctor.profile'
+import { Route as DoctorDoctorAppointmentsRouteImport } from './routes/_doctor.doctor.appointments'
 import { Route as AdminAdminPatientsRouteImport } from './routes/_admin.admin.patients'
 import { Route as AdminAdminDoctorsRouteImport } from './routes/_admin.admin.doctors'
 import { Route as DoctorDoctorPatientIdRouteImport } from './routes/_doctor.doctor.patient.$id'
@@ -143,6 +144,12 @@ const DoctorDoctorProfileRoute = DoctorDoctorProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => DoctorDoctorRoute,
 } as any)
+const DoctorDoctorAppointmentsRoute =
+  DoctorDoctorAppointmentsRouteImport.update({
+    id: '/appointments',
+    path: '/appointments',
+    getParentRoute: () => DoctorDoctorRoute,
+  } as any)
 const AdminAdminPatientsRoute = AdminAdminPatientsRouteImport.update({
   id: '/admin/patients',
   path: '/admin/patients',
@@ -177,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/patients': typeof AdminAdminPatientsRoute
+  '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
@@ -201,6 +209,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/patients': typeof AdminAdminPatientsRoute
+  '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
@@ -229,6 +238,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/_admin/admin/doctors': typeof AdminAdminDoctorsRoute
   '/_admin/admin/patients': typeof AdminAdminPatientsRoute
+  '/_doctor/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/admin/doctors'
     | '/admin/patients'
+    | '/doctor/appointments'
     | '/doctor/profile'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/admin/doctors'
     | '/admin/patients'
+    | '/doctor/appointments'
     | '/doctor/profile'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
@@ -306,6 +318,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/_admin/admin/doctors'
     | '/_admin/admin/patients'
+    | '/_doctor/doctor/appointments'
     | '/_doctor/doctor/profile'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
@@ -485,6 +498,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DoctorDoctorProfileRouteImport
       parentRoute: typeof DoctorDoctorRoute
     }
+    '/_doctor/doctor/appointments': {
+      id: '/_doctor/doctor/appointments'
+      path: '/appointments'
+      fullPath: '/doctor/appointments'
+      preLoaderRoute: typeof DoctorDoctorAppointmentsRouteImport
+      parentRoute: typeof DoctorDoctorRoute
+    }
     '/_admin/admin/patients': {
       id: '/_admin/admin/patients'
       path: '/admin/patients'
@@ -524,11 +544,13 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface DoctorDoctorRouteChildren {
+  DoctorDoctorAppointmentsRoute: typeof DoctorDoctorAppointmentsRoute
   DoctorDoctorProfileRoute: typeof DoctorDoctorProfileRoute
   DoctorDoctorPatientIdRoute: typeof DoctorDoctorPatientIdRoute
 }
 
 const DoctorDoctorRouteChildren: DoctorDoctorRouteChildren = {
+  DoctorDoctorAppointmentsRoute: DoctorDoctorAppointmentsRoute,
   DoctorDoctorProfileRoute: DoctorDoctorProfileRoute,
   DoctorDoctorPatientIdRoute: DoctorDoctorPatientIdRoute,
 }

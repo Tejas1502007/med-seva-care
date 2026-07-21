@@ -4,10 +4,15 @@ import { toast } from "sonner";
 import {
   CalendarDays, Clock, Stethoscope, IndianRupee,
   MapPin, Video, CheckCircle2, XCircle, Clock3,
-  ChevronRight, X, Loader2, RefreshCw,
+  ChevronRight, X, Loader2, RefreshCw, VideoIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { AppointmentMode, AppointmentStatus } from "@/lib/database.types";
+
+// ── Jitsi room name — same formula as doctor side
+function jitsiRoom(appointmentId: string) {
+  return `medseva-appt-${appointmentId}`;
+}
 
 export const Route = createFileRoute("/_patient/appointments")({
   head: () => ({
@@ -39,6 +44,7 @@ interface DoctorCard {
   hospital_address: string | null;
   consultation_fee: number | null;
   consultation_type: "online" | "offline" | "both" | null;
+  verification_status: "pending_review" | "approved" | "rejected" | null;
 }
 
 interface Appointment {
@@ -67,6 +73,8 @@ function PatientAppointments() {
   const [apptLoading, setApptLoading] = useState(true);
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorCard | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState<string>("Patient");
+  const [jitsiAppt, setJitsiAppt] = useState<Appointment | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -74,18 +82,39 @@ function PatientAppointments() {
         setUserId(user.id);
         loadDoctors();
         loadMyAppointments(user.id);
+        supabase.from("profiles").select("full_name").eq("id", user.id).single()
+          .then(({ data }) => { if (data?.full_name) setPatientName(data.full_name); });
       }
     });
   }, []);
 
-  // ── Load approved doctors ──────────────────────────────────────────────────
+  // ── Load all doctors ──────────────────────────────────────────────────────
 
   const loadDoctors = async () => {
     setLoading(true);
 
-    console.log("🔍 Loading doctors..."); // Debug
+    // Step 1: get all profiles with role = 'doctor'
+    const { data: doctorProfiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, phone, avatar_url")
+      .eq("role", "doctor");
 
-    const { data, error } = await supabase
+    if (profilesError) {
+      toast.error("Failed to load doctors: " + profilesError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!doctorProfiles || doctorProfiles.length === 0) {
+      setDoctors([]);
+      setLoading(false);
+      return;
+    }
+
+    const ids = doctorProfiles.map((p) => p.id);
+
+    // Step 2: get doctor_profiles for those IDs (may not exist for all)
+    const { data: dpData } = await supabase
       .from("doctor_profiles")
       .select(`
         id,
@@ -99,44 +128,34 @@ function PatientAppointments() {
         hospital_address,
         consultation_fee,
         consultation_type,
-        profiles!inner(full_name, email, phone, avatar_url)
+        verification_status
       `)
-      .eq("verification_status", "approved")
-      .eq("profile_completed", true);
+      .in("id", ids);
 
-    console.log("📊 Query result:", { data, error }); // Debug
-
-    if (error) {
-      console.error("❌ Query error:", error);
-      toast.error("Failed to load doctors: " + error.message);
-      setLoading(false);
-      return;
-    }
-
-    console.log(`✅ Found ${data?.length || 0} approved doctors`); // Debug
-
-    if (!data || data.length === 0) {
-      toast.info("No approved doctors available yet. Doctors need to complete their profile and get admin approval.");
-    }
+    const dpMap = Object.fromEntries((dpData ?? []).map((dp) => [dp.id, dp]));
 
     setDoctors(
-      (data ?? []).map((d: any) => ({
-        id: d.id,
-        full_name: d.profiles?.full_name ?? "Doctor",
-        email: d.profiles?.email ?? null,
-        phone: d.profiles?.phone ?? null,
-        avatar_url: d.profiles?.avatar_url ?? null,
-        dob: d.dob ?? null,
-        gender: d.gender ?? null,
-        specialization: d.specialization ?? "",
-        qualification: d.qualification ?? "",
-        years_of_experience: d.years_of_experience ?? null,
-        registration_number: d.registration_number ?? null,
-        hospital_clinic: d.hospital_clinic ?? null,
-        hospital_address: d.hospital_address ?? null,
-        consultation_fee: d.consultation_fee ?? null,
-        consultation_type: d.consultation_type ?? null,
-      }))
+      doctorProfiles.map((p) => {
+        const dp = dpMap[p.id] ?? null;
+        return {
+          id: p.id,
+          full_name: p.full_name ?? "Doctor",
+          email: p.email ?? null,
+          phone: p.phone ?? null,
+          avatar_url: p.avatar_url ?? null,
+          dob: dp?.dob ?? null,
+          gender: dp?.gender ?? null,
+          specialization: dp?.specialization ?? "",
+          qualification: dp?.qualification ?? "",
+          years_of_experience: dp?.years_of_experience ?? null,
+          registration_number: dp?.registration_number ?? null,
+          hospital_clinic: dp?.hospital_clinic ?? null,
+          hospital_address: dp?.hospital_address ?? null,
+          consultation_fee: dp?.consultation_fee ?? null,
+          consultation_type: dp?.consultation_type ?? null,
+          verification_status: dp?.verification_status ?? null,
+        };
+      })
     );
     setLoading(false);
   };
@@ -146,22 +165,7 @@ function PatientAppointments() {
   const loadMyAppointments = async (uid: string) => {
     setApptLoading(true);
     
-    // First, try a simple query to check if table exists
     const { data, error } = await supabase
-      .from("appointments")
-      .select("*")
-      .eq("patient_id", uid)
-      .limit(10);
-
-    if (error) {
-      console.error("Appointments query error:", error);
-      toast.error("Failed to load appointments: " + error.message);
-      setApptLoading(false);
-      return;
-    }
-
-    // If basic query works, try with joins
-    const { data: joinData, error: joinError } = await supabase
       .from("appointments")
       .select(`
         id,
@@ -177,42 +181,50 @@ function PatientAppointments() {
       .eq("patient_id", uid)
       .order("appointment_date", { ascending: false });
 
-    if (joinError) {
-      console.error("Join query failed:", joinError);
-      // Fallback to basic appointment data without joins
-      setAppointments(
-        (data ?? []).map((a: any) => ({
-          id: a.id,
-          doctor_id: a.doctor_id,
-          doctor_name: "Doctor", // Fallback when join fails
-          doctor_specialization: "",
-          appointment_date: a.appointment_date,
-          appointment_time: a.appointment_time,
-          mode: a.mode,
-          reason: a.reason,
-          rejection_reason: a.rejection_reason,
-          status: a.status,
-          created_at: a.created_at,
-        }))
-      );
-    } else {
-      // Use joined data if available
-      setAppointments(
-        (joinData ?? []).map((a: any) => ({
-          id: a.id,
-          doctor_id: a.doctor_id,
-          doctor_name: "Doctor", // Will fix joins later
-          doctor_specialization: "",
-          appointment_date: a.appointment_date,
-          appointment_time: a.appointment_time,
-          mode: a.mode,
-          reason: a.reason,
-          rejection_reason: a.rejection_reason,
-          status: a.status,
-          created_at: a.created_at,
-        }))
-      );
+    if (error) {
+      console.error("Appointments query error:", error);
+      toast.error("Failed to load appointments: " + error.message);
+      setApptLoading(false);
+      return;
     }
+
+    // Get doctor IDs to fetch their profiles
+    const doctorIds = [...new Set((data ?? []).map((a: any) => a.doctor_id))];
+    
+    if (doctorIds.length === 0) {
+      setAppointments([]);
+      setApptLoading(false);
+      return;
+    }
+
+    // Fetch doctor profiles and doctor_profiles in parallel
+    const [profilesRes, docProfilesRes] = await Promise.all([
+      supabase.from("profiles").select("id, full_name").in("id", doctorIds),
+      supabase.from("doctor_profiles").select("id, specialization").in("id", doctorIds),
+    ]);
+
+    const profileMap = Object.fromEntries(
+      (profilesRes.data ?? []).map((p) => [p.id, p.full_name])
+    );
+    const docProfileMap = Object.fromEntries(
+      (docProfilesRes.data ?? []).map((dp) => [dp.id, dp.specialization])
+    );
+
+    setAppointments(
+      (data ?? []).map((a: any) => ({
+        id: a.id,
+        doctor_id: a.doctor_id,
+        doctor_name: profileMap[a.doctor_id] ?? "Doctor",
+        doctor_specialization: docProfileMap[a.doctor_id] ?? "",
+        appointment_date: a.appointment_date,
+        appointment_time: a.appointment_time,
+        mode: a.mode,
+        reason: a.reason,
+        rejection_reason: a.rejection_reason,
+        status: a.status,
+        created_at: a.created_at,
+      }))
+    );
     setApptLoading(false);
   };
 
@@ -274,7 +286,8 @@ function PatientAppointments() {
           ) : doctors.length === 0 ? (
             <div className="card-base flex flex-col items-center justify-center py-20 gap-3">
               <Stethoscope size={32} color="#D1D5DB" />
-              <p className="text-sm" style={{ color: "#6B7280" }}>No verified doctors available yet.</p>
+              <p className="text-sm" style={{ color: "#6B7280" }}>No doctor accounts found.</p>
+              <p className="text-xs" style={{ color: "#9CA3AF" }}>Make sure doctor accounts are created in the system.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -326,11 +339,21 @@ function PatientAppointments() {
                   key={a.id}
                   appt={a}
                   onCancel={handleCancelAppointment}
+                  onJoinMeeting={(appt) => setJitsiAppt(appt)}
                 />
               ))}
             </div>
           )}
         </>
+      )}
+
+      {/* ── Jitsi Meeting Modal ── */}
+      {jitsiAppt && (
+        <JitsiModal
+          roomName={jitsiRoom(jitsiAppt.id)}
+          displayName={patientName}
+          onClose={() => setJitsiAppt(null)}
+        />
       )}
 
       {/* ── Booking Modal ── */}
@@ -365,6 +388,13 @@ function DoctorCardItem({ doc, onBook }: { doc: DoctorCard; onBook: () => void }
     ? Math.floor((Date.now() - new Date(doc.dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
     : null;
 
+  const verifBadge = {
+    approved:       { label: "Verified",        bg: "#ECFDF5", color: "#065F46" },
+    pending_review: { label: "Pending Review",  bg: "#FFFBEB", color: "#B45309" },
+    rejected:       { label: "Not Verified",    bg: "#FEF2F2", color: "#B91C1C" },
+  };
+  const badge = doc.verification_status ? verifBadge[doc.verification_status] : null;
+
   return (
     <div className="card-base p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
 
@@ -381,15 +411,29 @@ function DoctorCardItem({ doc, onBook }: { doc: DoctorCard; onBook: () => void }
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-base font-bold truncate" style={{ color: "#1A2332" }}>
-            Dr. {doc.full_name}
-          </p>
-          <p className="text-sm font-medium truncate" style={{ color: "#0D7A5F" }}>
-            {doc.specialization}
-          </p>
-          <p className="text-xs truncate" style={{ color: "#6B7280" }}>
-            {doc.qualification}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-base font-bold truncate" style={{ color: "#1A2332" }}>
+              Dr. {doc.full_name}
+            </p>
+            {badge && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                style={{ background: badge.bg, color: badge.color }}>
+                {badge.label}
+              </span>
+            )}
+          </div>
+          {doc.specialization ? (
+            <p className="text-sm font-medium truncate" style={{ color: "#0D7A5F" }}>
+              {doc.specialization}
+            </p>
+          ) : (
+            <p className="text-sm truncate" style={{ color: "#9CA3AF" }}>Profile not completed</p>
+          )}
+          {doc.qualification && (
+            <p className="text-xs truncate" style={{ color: "#6B7280" }}>
+              {doc.qualification}
+            </p>
+          )}
           {(age || doc.gender) && (
             <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>
               {[age ? `${age} yrs` : null, doc.gender].filter(Boolean).join(" · ")}
@@ -418,10 +462,12 @@ function DoctorCardItem({ doc, onBook }: { doc: DoctorCard; onBook: () => void }
             <span>{doc.years_of_experience} yrs experience</span>
           </div>
         )}
-        <div className="flex items-center gap-2 text-xs" style={{ color: "#6B7280" }}>
-          {doc.consultation_type === "online" ? <Video size={12} /> : <MapPin size={12} />}
-          <span>{modeLabel}</span>
-        </div>
+        {doc.consultation_type && (
+          <div className="flex items-center gap-2 text-xs" style={{ color: "#6B7280" }}>
+            {doc.consultation_type === "online" ? <Video size={12} /> : <MapPin size={12} />}
+            <span>{modeLabel}</span>
+          </div>
+        )}
         {doc.phone && (
           <div className="flex items-center gap-2 text-xs" style={{ color: "#6B7280" }}>
             <span>📞</span>
@@ -432,6 +478,12 @@ function DoctorCardItem({ doc, onBook }: { doc: DoctorCard; onBook: () => void }
           <div className="flex items-center gap-2 text-xs" style={{ color: "#9CA3AF" }}>
             <span>🪪</span>
             <span>Reg: {doc.registration_number}</span>
+          </div>
+        )}
+        {doc.email && !doc.phone && (
+          <div className="flex items-center gap-2 text-xs" style={{ color: "#6B7280" }}>
+            <span>✉️</span>
+            <span className="truncate">{doc.email}</span>
           </div>
         )}
       </div>
@@ -462,9 +514,11 @@ function DoctorCardItem({ doc, onBook }: { doc: DoctorCard; onBook: () => void }
 function AppointmentRow({
   appt,
   onCancel,
+  onJoinMeeting,
 }: {
   appt: Appointment;
   onCancel: (id: string) => void;
+  onJoinMeeting: (appt: Appointment) => void;
 }) {
   const statusConfig: Record<AppointmentStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
     pending:   { label: "Pending",   color: "#B45309", bg: "#FEF9C3", icon: <Clock3 size={13} /> },
@@ -542,8 +596,61 @@ function AppointmentRow({
               Cancel
             </button>
           )}
+          {/* Join Meeting — only for approved online appointments */}
+          {appt.status === "approved" && appt.mode === "online" && (
+            <button
+              onClick={() => onJoinMeeting(appt)}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: "#2563EB" }}
+            >
+              <VideoIcon size={13} /> Join Meeting
+            </button>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Jitsi Meeting Modal ────────────────────────────────────────────────────────
+function JitsiModal({ roomName, displayName, onClose }: {
+  roomName: string; displayName: string; onClose: () => void;
+}) {
+  const params = [
+    `userInfo.displayName="${encodeURIComponent(displayName)}"`,
+    "config.prejoinPageEnabled=false",
+    "config.startWithVideoMuted=false",
+    "config.startWithAudioMuted=false",
+  ].join("&");
+  const src = `https://meet.jit.si/${roomName}#${params}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#0F172A" }}>
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: "#1E293B" }}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "#2563EB" }}>
+            <VideoIcon size={16} color="#fff" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">MedSeva Video Consultation</p>
+            <p className="text-xs" style={{ color: "#94A3B8" }}>Powered by Jitsi Meet · Room: {roomName}</p>
+          </div>
+        </div>
+        <button onClick={onClose}
+          className="flex items-center gap-2 h-9 px-4 rounded-xl text-sm font-semibold transition-colors hover:bg-red-600"
+          style={{ background: "#EF4444", color: "#fff" }}>
+          <X size={15} /> End & Close
+        </button>
+      </div>
+
+      {/* Jitsi iframe */}
+      <iframe
+        src={src}
+        allow="camera; microphone; fullscreen; display-capture; autoplay"
+        className="flex-1 w-full border-0"
+        title="MedSeva Video Consultation"
+      />
     </div>
   );
 }
