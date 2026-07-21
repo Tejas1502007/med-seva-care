@@ -40,12 +40,13 @@ function PatientLayout() {
   const { profile } = useAuth();
 
   const PAGE_TITLES: Record<string, string> = {
-    "/dashboard":    "Dashboard",
-    "/reports":      "Health Reports",
-    "/care-plan":    "My Care Plan",
-    "/appointments": "Appointments",
-    "/aara":         "Talk to AARA",
-    "/profile":      "Profile",
+    "/dashboard":           "Dashboard",
+    "/reports":             "Health Reports",
+    "/care-plan":           "My Care Plan",
+    "/discharge-protocol":  "Recovery Plan",
+    "/appointments":        "Appointments",
+    "/aara":                "Talk to AARA",
+    "/profile":             "Profile",
   };
   const pageTitle = PAGE_TITLES[pathname] ?? "MedSeva";
   const displayName = profile?.full_name ?? "Patient";

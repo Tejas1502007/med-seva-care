@@ -1,10 +1,27 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Users, AlertOctagon, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { Users, AlertOctagon, AlertTriangle, CheckCircle, RefreshCw, ChevronDown, ChevronUp, Bell, MessageCircle, Phone, Stethoscope, Building2 } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { RiskBadge } from "@/components/RiskBadge";
 import { supabase } from "@/lib/supabase";
 import type { RiskLevel } from "@/lib/mock-data";
+
+// ─── Alert types ──────────────────────────────────────────────────────────────
+type AlertSev = "MODERATE" | "HIGH" | "CRITICAL";
+interface EscStep { step: number; label: string; status: "done" | "pending"; timestamp: string | null }
+interface DoctorAlert {
+  id: string;
+  user_id: string;
+  trigger_type: string;
+  trigger_value: string;
+  severity: AlertSev;
+  steps: EscStep[];
+  current_step: number;
+  resolved: boolean;
+  created_at: string;
+  patient_name?: string;
+}
 
 export const Route = createFileRoute("/_doctor/doctor")({
   component: DoctorSection,
@@ -34,29 +51,46 @@ function PatientQueue() {
   const [patients, setPatients] = useState<QueuePatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("All");
+  const [docAlerts, setDocAlerts] = useState<DoctorAlert[]>([]);
+  const [alertsOpen, setAlertsOpen] = useState(true);
+  const alertChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const patientIdsRef = useRef<string[]>([]);
+
+  const loadAlerts = async (ids: string[], profileMap: Record<string, { full_name: string | null }>) => {
+    if (!ids.length) { setDocAlerts([]); return; }
+    const { data } = await supabase
+      .from("alert_escalations")
+      .select("*")
+      .in("user_id", ids)
+      .eq("resolved", false)
+      .order("created_at", { ascending: false });
+    const enriched = (data ?? []).map((a) => ({
+      ...a,
+      patient_name: profileMap[a.user_id]?.full_name ?? "Unknown Patient",
+    })) as DoctorAlert[];
+    setDocAlerts(enriched);
+  };
 
   const load = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    // Get patients assigned to this doctor
     const { data: pp } = await supabase
       .from("patient_profiles")
       .select("id, age, gender, conditions, risk_level, assigned_doctor_id")
       .eq("assigned_doctor_id", user.id);
 
-    if (!pp?.length) { setPatients([]); setLoading(false); return; }
+    if (!pp?.length) { setPatients([]); setDocAlerts([]); setLoading(false); return; }
 
     const ids = pp.map((p) => p.id);
+    patientIdsRef.current = ids;
 
-    // Get base profiles
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", ids);
 
-    // Get latest vitals for each patient
     const { data: vitals } = await supabase
       .from("vitals")
       .select("patient_id, type, value, notes, recorded_at")
@@ -66,7 +100,6 @@ function PatientQueue() {
 
     const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
 
-    // Group latest vital per patient per type
     const vitalsMap: Record<string, { blood_sugar?: string; blood_pressure?: string }> = {};
     for (const v of vitals ?? []) {
       if (!vitalsMap[v.patient_id]) vitalsMap[v.patient_id] = {};
@@ -95,10 +128,28 @@ function PatientQueue() {
         critical: risk === "HIGH" || sugarVal > 250,
       };
     }));
+
+    await loadAlerts(ids, profileMap);
     setLoading(false);
+
+    // Realtime on alert_escalations for all patient ids
+    if (alertChannelRef.current) supabase.removeChannel(alertChannelRef.current);
+    // Supabase filter only supports single value in realtime; re-query on any change
+    alertChannelRef.current = supabase
+      .channel(`doctor-alerts:${user.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "alert_escalations" },
+        () => loadAlerts(patientIdsRef.current, profileMap)
+      )
+      .subscribe();
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    return () => {
+      if (alertChannelRef.current) supabase.removeChannel(alertChannelRef.current);
+    };
+  }, []);
 
   const filtered = patients.filter((p) => filter === "All" || p.risk === filter);
 
@@ -127,6 +178,36 @@ function PatientQueue() {
         <StatCard label="Moderate" value={String(moderate).padStart(2, "0")} icon={AlertTriangle} />
         <StatCard label="Stable" value={String(stable).padStart(2, "0")} icon={CheckCircle} />
       </div>
+
+      {/* Active Alerts panel */}
+      {docAlerts.length > 0 && (
+        <div className="mt-6 rounded-xl border overflow-hidden" style={{ borderColor: "#FCA5A5" }}>
+          <button
+            onClick={() => setAlertsOpen((p) => !p)}
+            className="w-full flex items-center justify-between px-5 py-3"
+            style={{ background: "#FEF2F2" }}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} color="#B91C1C" />
+              <span className="text-sm font-bold" style={{ color: "#B91C1C" }}>
+                Unresolved Patient Alerts
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: "#B91C1C" }}>
+                {docAlerts.length}
+              </span>
+            </div>
+            {alertsOpen ? <ChevronUp size={15} color="#B91C1C" /> : <ChevronDown size={15} color="#B91C1C" />}
+          </button>
+
+          {alertsOpen && (
+            <div className="p-4 space-y-3" style={{ background: "#FFF5F5" }}>
+              {docAlerts.map((alert) => (
+                <DoctorAlertCard key={alert.id} alert={alert} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mt-7 mb-5 flex-wrap">
         <span className="label-caps">Quick Filters:</span>
@@ -227,3 +308,71 @@ function PatientCard({ p }: { p: QueuePatient }) {
     </div>
   );
 }
+
+// ─── DoctorAlertCard ──────────────────────────────────────────────────────────
+
+const STEP_ICONS_DOC = [Bell, MessageCircle, Phone, Stethoscope, Building2];
+
+function DoctorAlertCard({ alert }: { alert: DoctorAlert }) {
+  const borderColor = alert.severity === "MODERATE" ? "#B45309" : "#B91C1C";
+  const steps = (alert.steps ?? []) as EscStep[];
+  const today = new Date().toISOString().split("T")[0];
+
+  return (
+    <div className="rounded-xl border bg-white overflow-hidden" style={{ borderLeft: `4px solid ${borderColor}`, borderColor: "#FCA5A5" }}>
+      <div className="p-4">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded-full"
+                style={{ background: alert.severity === "MODERATE" ? "#FEF3C7" : "#FEE2E2", color: borderColor }}>
+                {alert.severity}
+              </span>
+              <span className="text-sm font-bold" style={{ color: "#1A2332" }}>{alert.patient_name}</span>
+              <span className="text-sm" style={{ color: "#6B7280" }}>
+                — {alert.trigger_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}:{" "}
+                <strong style={{ color: borderColor }}>{alert.trigger_value}</strong>
+              </span>
+            </div>
+            <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
+              {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
+            </span>
+          </div>
+          <Link to="/doctor/patient/$id" params={{ id: alert.user_id }}
+            className="shrink-0 h-8 px-3 rounded-lg text-white text-xs font-semibold flex items-center"
+            style={{ background: "#B91C1C" }}>
+            Review Patient
+          </Link>
+        </div>
+
+        {/* Escalation chain */}
+        <div className="flex items-start">
+          {steps.map((step, idx) => {
+            const Icon = STEP_ICONS_DOC[idx] ?? Bell;
+            const isDone    = step.status === "done";
+            const isCurrent = !isDone && step.step === alert.current_step + 1;
+            const isFuture  = !isDone && !isCurrent;
+            const isLast    = idx === steps.length - 1;
+            return (
+              <div key={step.step} className="flex items-center flex-1 min-w-0">
+                <div className="flex flex-col items-center gap-1 shrink-0">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center ${isCurrent ? "animate-pulse" : ""}`}
+                    style={{ background: isDone ? "#0D7A5F" : isCurrent ? "#B91C1C" : "transparent", border: isFuture ? "2px solid #D1D5DB" : "none" }}>
+                    <Icon size={12} color={isDone || isCurrent ? "#fff" : "#D1D5DB"} />
+                  </div>
+                  <span className="text-[9px] text-center leading-tight max-w-[48px] truncate"
+                    style={{ color: isDone ? "#0D7A5F" : isCurrent ? "#B91C1C" : "#9CA3AF" }}>
+                    {step.label}
+                  </span>
+                </div>
+                {!isLast && <div className="flex-1 h-0.5 mb-4 mx-0.5" style={{ background: isDone ? "#0D7A5F" : "#E5E7EB" }} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+

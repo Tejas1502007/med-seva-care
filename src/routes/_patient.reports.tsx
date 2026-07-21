@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileText, UploadCloud, X, Sparkles, ExternalLink, Loader2, AlertTriangle, ClipboardList, ShieldCheck, TriangleAlert, Vault, HeartPulse, Shield } from "lucide-react";
+import { FileText, UploadCloud, X, Sparkles, ExternalLink, Loader2, AlertTriangle, ClipboardList, ShieldCheck, TriangleAlert, Vault, HeartPulse, Shield, CheckCircle2, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DrugSafetyContent } from "./_patient.drug-safety";
@@ -30,6 +30,96 @@ const STAGE_LABEL: Record<Stage, string> = {
   analyzing: "AI analyzing…",
   saving: "Saving results…",
 };
+
+/* ── Recovery Plan types ── */
+type DiagnosisCategory = "cardiac" | "diabetes" | "surgical" | "respiratory" | "general";
+type RecoveryState = "loading" | "idle" | "parsing" | "review" | "active";
+
+interface DischargeMedication { name: string; dose: string; frequency: string; timing: string }
+interface ParsedDischarge {
+  patient_name: string;
+  primary_diagnosis: string;
+  secondary_diagnoses: string[];
+  diagnosis_category: DiagnosisCategory;
+  discharge_medications: DischargeMedication[];
+  follow_up_date: string | null;
+  follow_up_doctor: string | null;
+  activity_restrictions: string[];
+  dietary_restrictions: string[];
+  warning_signs: string[];
+  discharge_date: string | null;
+}
+interface ScheduledCheckIn {
+  id: string;
+  day_number: number;
+  priority: "HIGH" | "ROUTINE";
+  scheduled_date: string;
+  questions: string[];
+  escalate_if: string;
+  status: "PENDING" | "COMPLETED" | "ESCALATED" | "MISSED" | "IN_PROGRESS";
+}
+interface ActiveProtocol {
+  id: string;
+  parsed_data: ParsedDischarge;
+  activated_at: string | null;
+  created_at: string;
+}
+
+/* ── Protocol generation data ── */
+const DAYS_BY_CAT: Record<DiagnosisCategory, number[]> = {
+  cardiac:     [1,2,3,5,7,10,14,21,30,60,90],
+  diabetes:    [1,3,7,14,30,60,90],
+  surgical:    [1,2,3,7,14,30,90],
+  respiratory: [1,3,7,14,30,90],
+  general:     [1,3,7,14,30,90],
+};
+const Q_BY_CAT: Record<DiagnosisCategory, { high: string[]; routine: string[] }> = {
+  cardiac: {
+    high:    ["Any chest pain or tightness?","Shortness of breath at rest?","Swelling in legs or ankles?","Did you take all heart medications today?","Any dizziness when standing?"],
+    routine: ["Energy level today (rate 1-10)?","Following the low-salt diet?","BP reading if you have it?","Any new symptoms since last check-in?"],
+  },
+  diabetes: {
+    high:    ["Blood sugar reading this morning?","Any episodes of dizziness, sweating, or shaking?","Did you take all diabetes medications as prescribed?","Any foot pain, numbness or new wounds?"],
+    routine: ["Blood sugar this morning?","Following the meal plan?","Any new symptoms?","Medication taken on time?"],
+  },
+  surgical: {
+    high:    ["Any pain at the surgery site (rate 0-10)?","Any redness, swelling or discharge at wound site?","Fever above 100°F / 38°C?","Did you take all prescribed medications?"],
+    routine: ["How is the wound healing?","Pain level today?","Able to do light activities?","Following diet restrictions?"],
+  },
+  respiratory: {
+    high:    ["Any difficulty breathing or shortness of breath?","Coughing up blood or unusual phlegm?","Fever above 100°F / 38°C?","Did you take all respiratory medications today?"],
+    routine: ["How is your breathing today?","Using the inhaler/medication correctly?","Any new respiratory symptoms?","Energy level today (rate 1-10)?"],
+  },
+  general: {
+    high:    ["How are you feeling overall?","Any new or worsening symptoms?","All medications taken today?","Any fever or pain?"],
+    routine: ["Energy level today?","Sleeping well?","Eating normally?","Any concerns?"],
+  },
+};
+const ESC_BY_CAT: Record<DiagnosisCategory, { high: string; routine: string }> = {
+  cardiac:     { high: "Chest pain, breathlessness, or leg swelling reported", routine: "Energy below 3/10 or new symptoms" },
+  diabetes:    { high: "Blood sugar above 250 mg/dL or below 70 mg/dL, or dizziness reported", routine: "Sugar consistently above 180 or medication missed 2+ days" },
+  surgical:    { high: "Fever above 100°F or wound discharge or pain above 7/10", routine: "Pain not improving or wound concerns" },
+  respiratory: { high: "Severe breathlessness or blood in sputum reported", routine: "Worsening respiratory symptoms" },
+  general:     { high: "Multiple concerning symptoms reported", routine: "Worsening condition reported" },
+};
+
+function buildCheckIns(p: ParsedDischarge) {
+  const cat = p.diagnosis_category ?? "general";
+  const days = DAYS_BY_CAT[cat] ?? DAYS_BY_CAT.general;
+  const q = Q_BY_CAT[cat] ?? Q_BY_CAT.general;
+  const esc = ESC_BY_CAT[cat] ?? ESC_BY_CAT.general;
+  const base = p.discharge_date ? new Date(p.discharge_date) : new Date();
+  return days.map((day) => {
+    const hi = day <= 3 || day === 7 || day === 10;
+    return {
+      day_number: day,
+      priority: (hi ? "HIGH" : "ROUTINE") as "HIGH" | "ROUTINE",
+      scheduled_date: new Date(base.getTime() + day * 86400000).toISOString().split("T")[0],
+      questions: hi ? q.high : q.routine,
+      escalate_if: hi ? esc.high : esc.routine,
+    };
+  });
+}
 
 /* ── Convert file → base64 JPEG for Groq Vision ── */
 async function fileToBase64Image(file: File): Promise<{ base64: string; mimeType: string }> {
@@ -83,6 +173,17 @@ function ReportsPage() {
   const [activeTab, setActiveTab] = useState("reports");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Recovery Plan state ──
+  const [recoveryState, setRecoveryState] = useState<RecoveryState>("loading");
+  const [parsedDischarge, setParsedDischarge] = useState<ParsedDischarge | null>(null);
+  const [activeProtocol, setActiveProtocol] = useState<ActiveProtocol | null>(null);
+  const [checkIns, setCheckIns] = useState<ScheduledCheckIn[]>([]);
+  const [recoveryFileName, setRecoveryFileName] = useState("");
+  const [activating, setActivating] = useState(false);
+  const [parseStep, setParseStep] = useState(0); // 0=idle 1=reading 2=extracting 3=building
+  const recoveryFileRef = useRef<HTMLInputElement>(null);
+  const recoveryLoadedRef = useRef(false);
+
   useEffect(() => { loadReports(); }, []);
 
   const loadReports = async () => {
@@ -96,6 +197,107 @@ function ReportsPage() {
       .order("report_date", { ascending: false });
     setReports((data ?? []) as Report[]);
     setLoading(false);
+  };
+
+  // ── Load active recovery protocol when tab is first opened ──
+  useEffect(() => {
+    if (activeTab !== "recovery" || recoveryLoadedRef.current) return;
+    recoveryLoadedRef.current = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setRecoveryState("idle"); return; }
+
+        const { data: proto, error } = await (supabase as any)
+          .from("discharge_protocols")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("activated", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) { console.warn("recovery load:", error.message); setRecoveryState("idle"); return; }
+
+        if (proto) {
+          const { data: ci } = await (supabase as any)
+            .from("aara_scheduled_checkins")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("protocol_id", proto.id)
+            .order("day_number", { ascending: true });
+          setActiveProtocol(proto as ActiveProtocol);
+          setCheckIns((ci ?? []) as ScheduledCheckIn[]);
+          setRecoveryState("active");
+        } else {
+          setRecoveryState("idle");
+        }
+      } catch (e) {
+        console.error("recovery load error:", e);
+        setRecoveryState("idle");
+      }
+    })();
+  }, [activeTab]);
+
+  // ── Handle discharge summary file upload ──
+  const handleRecoveryFile = async (file: File) => {
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+    if (!allowed.includes(file.type)) { toast.error("Only PDF, JPG or PNG"); return; }
+    if (file.size > 15 * 1024 * 1024) { toast.error("Max file size 15MB"); return; }
+    setRecoveryFileName(file.name);
+    setRecoveryState("parsing");
+    setParseStep(1);
+    await new Promise((r) => setTimeout(r, 900));
+    setParseStep(2);
+    try {
+      const { base64, mimeType } = await fileToBase64Image(file);
+      setParseStep(3);
+      const res = await fetch("/api/discharge-protocol", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, mimeType, fileName: file.name }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "API error"); }
+      const { parsed, demo } = await res.json() as { parsed: ParsedDischarge; demo: boolean };
+      if (demo) toast.info("Showing sample data — document wasn't fully readable. Please review.");
+      setParsedDischarge(parsed);
+      setParseStep(0);
+      setRecoveryState("review");
+    } catch (err) {
+      toast.error(String(err));
+      setParseStep(0);
+      setRecoveryState("idle");
+    }
+  };
+
+  // ── Activate protocol ──
+  const handleActivateProtocol = async () => {
+    if (!parsedDischarge) return;
+    setActivating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+      const cis = buildCheckIns(parsedDischarge);
+      const { data: proto, error: pe } = await (supabase as any)
+        .from("discharge_protocols")
+        .insert({ user_id: user.id, parsed_data: parsedDischarge, activated: true, activated_at: new Date().toISOString(), raw_text: recoveryFileName || null })
+        .select().single();
+      if (pe) throw new Error(pe.message);
+      const { error: ce } = await (supabase as any)
+        .from("aara_scheduled_checkins")
+        .insert(cis.map((ci) => ({ user_id: user.id, protocol_id: proto.id, ...ci, status: "PENDING" })));
+      if (ce) throw new Error(ce.message);
+      const { data: savedCI } = await (supabase as any)
+        .from("aara_scheduled_checkins").select("*").eq("protocol_id", proto.id).order("day_number", { ascending: true });
+      setActiveProtocol(proto as ActiveProtocol);
+      setCheckIns((savedCI ?? []) as ScheduledCheckIn[]);
+      setRecoveryState("active");
+      toast.success("Recovery plan activated! Your 90-day protocol is ready.");
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setActivating(false);
+    }
   };
 
   const handleFile = async (file: File) => {
@@ -251,6 +453,9 @@ function ReportsPage() {
       <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="sr-only"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
 
+      <input ref={recoveryFileRef} type="file" accept="application/pdf,image/*" className="sr-only"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRecoveryFile(f); e.target.value = ""; }} />
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-6 bg-white border border-[#EEF0F3] p-1 rounded-xl h-auto flex-wrap justify-start gap-1">
           <TabsTrigger value="reports" className="rounded-lg data-[state=active]:bg-[#E8F5F1] data-[state=active]:text-[#0D7A5F]">
@@ -351,16 +556,417 @@ function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="recovery">
-          <div className="card-base p-8 text-center">
-            <HeartPulse size={28} color="#0D7A5F" className="mx-auto mb-3" />
-            <h2 className="text-lg font-semibold" style={{ color: "#1A2332" }}>Recovery Plan</h2>
-            <p className="text-sm mt-2" style={{ color: "#6B7280" }}>Your discharge-based 90-day protocol will appear here once a summary is uploaded and parsed.</p>
-          </div>
+          <RecoveryPlanTab
+            recoveryState={recoveryState}
+            parsedDischarge={parsedDischarge}
+            setParsedDischarge={setParsedDischarge}
+            activeProtocol={activeProtocol}
+            checkIns={checkIns}
+            activating={activating}
+            parseStep={parseStep}
+            recoveryFileRef={recoveryFileRef}
+            onFile={handleRecoveryFile}
+            onActivate={handleActivateProtocol}
+            onReupload={() => { setParsedDischarge(null); setRecoveryState("idle"); setTimeout(() => recoveryFileRef.current?.click(), 100); }}
+          />
         </TabsContent>
       </Tabs>
 
       {open && <AnalysisDrawer report={open} onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+// ─── Recovery Plan Tab ────────────────────────────────────────────────────────
+
+function RecoveryPlanTab({
+  recoveryState, parsedDischarge, setParsedDischarge, activeProtocol, checkIns,
+  activating, parseStep, recoveryFileRef, onFile, onActivate, onReupload,
+}: {
+  recoveryState: RecoveryState;
+  parsedDischarge: ParsedDischarge | null;
+  setParsedDischarge: (d: ParsedDischarge) => void;
+  activeProtocol: ActiveProtocol | null;
+  checkIns: ScheduledCheckIn[];
+  activating: boolean;
+  parseStep: number;
+  recoveryFileRef: React.RefObject<HTMLInputElement | null>;
+  onFile: (f: File) => void;
+  onActivate: () => void;
+  onReupload: () => void;
+}) {
+  if (recoveryState === "loading") {
+    return <div className="flex justify-center py-20"><Loader2 size={24} color="#0D7A5F" className="animate-spin" /></div>;
+  }
+
+  if (recoveryState === "active" && activeProtocol) {
+    return <RecoveryActive protocol={activeProtocol} checkIns={checkIns} />;
+  }
+
+  if (recoveryState === "review" && parsedDischarge) {
+    return (
+      <RecoveryReview
+        parsedDischarge={parsedDischarge}
+        setParsedDischarge={setParsedDischarge}
+        onActivate={onActivate}
+        onReupload={onReupload}
+        activating={activating}
+      />
+    );
+  }
+
+  // idle or parsing
+  return <RecoveryIdle parseStep={parseStep} recoveryFileRef={recoveryFileRef} onFile={onFile} />;
+}
+
+// ── Idle / parsing state ──────────────────────────────────────────────────────
+
+function RecoveryIdle({ parseStep, recoveryFileRef, onFile }: {
+  parseStep: number;
+  recoveryFileRef: React.RefObject<HTMLInputElement | null>;
+  onFile: (f: File) => void;
+}) {
+  const steps = [
+    { label: "Reading document",        done: parseStep > 1, active: parseStep === 1 },
+    { label: "Extracting clinical data", done: parseStep > 2, active: parseStep === 2 },
+    { label: "Building recovery plan",  done: parseStep > 3, active: parseStep === 3 },
+  ];
+
+  if (parseStep > 0) {
+    return (
+      <div className="card-base p-8 max-w-md mx-auto mt-4">
+        <div className="flex items-center gap-3 mb-7">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "#E8F5F1" }}>
+            <Loader2 size={20} color="#0D7A5F" className="animate-spin" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold" style={{ color: "#1A2332" }}>Processing your discharge summary…</div>
+            <div className="text-xs" style={{ color: "#6B7280" }}>This usually takes 10–20 seconds</div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {steps.map((step) => (
+            <div key={step.label} className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: step.done ? "#0D7A5F" : step.active ? "#E8F5F1" : "#F3F4F6" }}>
+                {step.done
+                  ? <CheckCircle2 size={14} color="#fff" />
+                  : step.active
+                  ? <Loader2 size={14} color="#0D7A5F" className="animate-spin" />
+                  : <span className="w-2 h-2 rounded-full" style={{ background: "#D1D5DB" }} />}
+              </div>
+              <span className="text-sm font-medium"
+                style={{ color: step.done ? "#15803D" : step.active ? "#1A2332" : "#9CA3AF" }}>
+                {step.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-xl mx-auto pt-2">
+      <div className="mb-6">
+        <h2 className="text-[18px] font-bold" style={{ color: "#1A2332" }}>Recovery Plan</h2>
+        <p className="text-sm mt-1" style={{ color: "#6B7280" }}>
+          Upload your discharge summary to start your personalised 90-day recovery protocol.
+        </p>
+      </div>
+
+      <div
+        onClick={() => recoveryFileRef.current?.click()}
+        onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
+        onDragOver={(e) => e.preventDefault()}
+        className="rounded-xl border-2 border-dashed py-12 px-8 text-center cursor-pointer transition-colors hover:bg-[#F0FDF9] hover:border-[#0D7A5F] mb-6"
+        style={{ borderColor: "#D1D5DB", background: "#FFFFFF" }}
+      >
+        <div className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: "#E8F5F1" }}>
+          <FileText size={28} color="#0D7A5F" />
+        </div>
+        <div className="text-sm font-semibold mb-1" style={{ color: "#1A2332" }}>Drag &amp; drop your discharge summary</div>
+        <div className="text-xs mb-4" style={{ color: "#6B7280" }}>Supports PDF and images (JPG, PNG)</div>
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-white text-sm font-semibold" style={{ background: "#0D7A5F" }}>
+          <UploadCloud size={15} /> Choose File
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 justify-center">
+        {["AI reads your clinical data", "Medications extracted automatically", "90-day check-in schedule generated"].map((t) => (
+          <span key={t} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: "#E8F5F1", color: "#0D7A5F" }}>✓ {t}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Review state ──────────────────────────────────────────────────────────────
+
+function RecoveryReview({ parsedDischarge, setParsedDischarge, onActivate, onReupload, activating }: {
+  parsedDischarge: ParsedDischarge;
+  setParsedDischarge: (d: ParsedDischarge) => void;
+  onActivate: () => void;
+  onReupload: () => void;
+  activating: boolean;
+}) {
+  const [editingDx, setEditingDx] = useState(false);
+  const [dxVal, setDxVal] = useState(parsedDischarge.primary_diagnosis);
+
+  const updateMed = (idx: number, field: keyof DischargeMedication, val: string) => {
+    const meds = [...parsedDischarge.discharge_medications];
+    meds[idx] = { ...meds[idx], [field]: val };
+    setParsedDischarge({ ...parsedDischarge, discharge_medications: meds });
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto pt-2 space-y-4">
+      <div className="mb-2">
+        <h2 className="text-[18px] font-bold" style={{ color: "#1A2332" }}>Review Your Information</h2>
+        <p className="text-sm" style={{ color: "#6B7280" }}>Tap any field to edit before activating.</p>
+      </div>
+
+      {/* Patient & diagnosis */}
+      <div className="card-base p-5">
+        <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6B7280" }}>Patient &amp; Diagnosis</div>
+        <div className="text-base font-bold mb-1" style={{ color: "#1A2332" }}>{parsedDischarge.patient_name}</div>
+        {editingDx ? (
+          <div className="flex gap-2 mt-1">
+            <input value={dxVal} onChange={(e) => setDxVal(e.target.value)} autoFocus
+              className="flex-1 border rounded-lg px-3 py-1.5 text-sm outline-none" style={{ borderColor: "#0D7A5F" }} />
+            <button onClick={() => { setParsedDischarge({ ...parsedDischarge, primary_diagnosis: dxVal }); setEditingDx(false); }}
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold" style={{ background: "#0D7A5F" }}>Save</button>
+          </div>
+        ) : (
+          <button onClick={() => setEditingDx(true)} className="text-sm font-semibold hover:underline text-left" style={{ color: "#0D7A5F" }}>
+            {parsedDischarge.primary_diagnosis} ✎
+          </button>
+        )}
+        {parsedDischarge.secondary_diagnoses?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {parsedDischarge.secondary_diagnoses.map((d) => (
+              <span key={d} className="text-xs px-2.5 py-1 rounded-full" style={{ background: "#F3F4F6", color: "#374151" }}>{d}</span>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" style={{ background: "#E8F5F1", color: "#0D7A5F" }}>
+            {parsedDischarge.diagnosis_category}
+          </span>
+          {parsedDischarge.follow_up_date && (
+            <span className="text-xs" style={{ color: "#6B7280" }}>
+              Follow-up: <strong style={{ color: "#1A2332" }}>{new Date(parsedDischarge.follow_up_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</strong>
+              {parsedDischarge.follow_up_doctor ? ` · ${parsedDischarge.follow_up_doctor}` : ""}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Medications */}
+      {parsedDischarge.discharge_medications?.length > 0 && (
+        <div className="card-base p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6B7280" }}>
+            Discharge Medications ({parsedDischarge.discharge_medications.length})
+          </div>
+          <div className="space-y-3">
+            {parsedDischarge.discharge_medications.map((med, idx) => (
+              <div key={idx} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "#F7F8FA" }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#E8F5F1" }}>
+                  <span className="text-[10px] font-bold" style={{ color: "#0D7A5F" }}>Rx</span>
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <input value={med.name} onChange={(e) => updateMed(idx, "name", e.target.value)}
+                    className="w-full text-sm font-semibold bg-transparent outline-none border-b border-transparent focus:border-[#0D7A5F]"
+                    style={{ color: "#1A2332" }} />
+                  <div className="flex gap-3 flex-wrap">
+                    {(["dose", "frequency", "timing"] as const).map((f) => (
+                      <input key={f} value={med[f]} onChange={(e) => updateMed(idx, f, e.target.value)} placeholder={f}
+                        className="text-xs bg-transparent outline-none border-b border-transparent focus:border-[#0D7A5F]"
+                        style={{ color: "#6B7280" }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Warning signs */}
+      {parsedDischarge.warning_signs?.length > 0 && (
+        <div className="rounded-xl border p-4" style={{ borderColor: "#FCA5A5", background: "#FFF5F5" }}>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={13} color="#DC2626" />
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#DC2626" }}>Warning Signs</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {parsedDischarge.warning_signs.map((w) => (
+              <span key={w} className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>{w}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Activity restrictions */}
+      {parsedDischarge.activity_restrictions?.length > 0 && (
+        <div className="rounded-xl border p-4" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "#B45309" }}>Activity Restrictions</div>
+          <div className="flex flex-wrap gap-2">
+            {parsedDischarge.activity_restrictions.map((a) => (
+              <span key={a} className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "#FEF3C7", color: "#92400E" }}>{a}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button onClick={onActivate} disabled={activating}
+        className="w-full h-12 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+        style={{ background: "#0D7A5F" }}>
+        {activating ? <Loader2 size={17} className="animate-spin" /> : <ShieldCheck size={17} />}
+        {activating ? "Activating…" : "This looks correct — Activate My Recovery Plan"}
+      </button>
+      <div className="text-center pb-4">
+        <button onClick={onReupload} className="text-sm flex items-center gap-1.5 mx-auto hover:underline" style={{ color: "#6B7280" }}>
+          <RotateCcw size={13} /> Re-upload
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Active state ──────────────────────────────────────────────────────────────
+
+function RecoveryActive({ protocol, checkIns }: { protocol: ActiveProtocol; checkIns: ScheduledCheckIn[] }) {
+  const [expandAll, setExpandAll] = useState(false);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  const today = new Date().toISOString().split("T")[0];
+  const todayCI = checkIns.find((ci) => ci.scheduled_date === today && ci.status === "PENDING");
+  const nextPending = checkIns.find((ci) => ci.status === "PENDING");
+
+  const toggle = (day: number) => setExpanded((prev) => { const n = new Set(prev); n.has(day) ? n.delete(day) : n.add(day); return n; });
+  const isOpen = (day: number) => expandAll || expanded.has(day);
+
+  const dotStyle = (ci: ScheduledCheckIn) => {
+    if (ci.status === "COMPLETED") return { bg: "#15803D", icon: "check" };
+    if (ci.status === "MISSED")    return { bg: "#F59E0B", icon: "alert" };
+    if (ci.scheduled_date > today) return { bg: "#E5E7EB", icon: "future" };
+    return { bg: ci.priority === "HIGH" ? "#DC2626" : "#0D7A5F", icon: "dot" };
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto pt-2">
+      {/* Banner */}
+      <div className="rounded-xl p-5 mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+        style={{ background: "linear-gradient(135deg,#0D7A5F 0%,#15803D 100%)" }}>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <ShieldCheck size={17} color="#fff" />
+            <span className="text-sm font-bold text-white">Your recovery plan is active</span>
+          </div>
+          <div className="text-xs text-white opacity-80">
+            {protocol.parsed_data.primary_diagnosis} · {protocol.parsed_data.diagnosis_category.charAt(0).toUpperCase() + protocol.parsed_data.diagnosis_category.slice(1)} protocol
+          </div>
+        </div>
+        {nextPending && (
+          <div className="rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}>
+            Next: Day {nextPending.day_number} · {new Date(nextPending.scheduled_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+          </div>
+        )}
+      </div>
+
+      {/* Today's check-in */}
+      {todayCI && (
+        <div className="rounded-xl border-2 p-5 mb-5" style={{ borderColor: "#0D7A5F", background: "#F0FDF9" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <span className="text-sm font-bold" style={{ color: "#0D7A5F" }}>Today's Check-in — Day {todayCI.day_number}</span>
+              <div className="text-xs mt-0.5" style={{ color: "#6B7280" }}>{todayCI.priority === "HIGH" ? "🔴 High priority" : "🟢 Routine"}</div>
+            </div>
+            <RxPriorityBadge priority={todayCI.priority} />
+          </div>
+          <div className="space-y-1.5 mb-4">
+            {todayCI.questions.slice(0, 2).map((q) => (
+              <div key={q} className="text-sm flex gap-2" style={{ color: "#374151" }}><span style={{ color: "#0D7A5F" }}>•</span>{q}</div>
+            ))}
+            {todayCI.questions.length > 2 && <div className="text-xs" style={{ color: "#6B7280" }}>+{todayCI.questions.length - 2} more</div>}
+          </div>
+          <a href={`/aara?checkin=true&day=${todayCI.day_number}`}
+            className="w-full h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
+            style={{ background: "#0D7A5F" }}>
+            Start Check-in with AARA
+          </a>
+        </div>
+      )}
+
+      {/* Timeline */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold" style={{ color: "#1A2332" }}>90-Day Timeline</h3>
+        <button onClick={() => setExpandAll((p) => !p)} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#0D7A5F" }}>
+          {expandAll ? <><ChevronUp size={13} />Collapse</> : <><ChevronDown size={13} />View Full Protocol</>}
+        </button>
+      </div>
+
+      <div className="relative">
+        <div className="absolute left-[13px] top-4 bottom-4 w-0.5" style={{ background: "#E8ECF0" }} />
+        <div className="space-y-1">
+          {checkIns.map((ci) => {
+            const ds = dotStyle(ci);
+            const open = isOpen(ci.day_number);
+            const missed = ci.status === "PENDING" && ci.scheduled_date < today;
+            return (
+              <div key={ci.id} className="relative pl-8">
+                <div className="absolute left-0 top-3.5 w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ background: ds.bg, border: `2px solid ${ds.bg}` }}>
+                  {ds.icon === "check"  && <CheckCircle2 size={13} color="#fff" />}
+                  {ds.icon === "alert"  && <AlertTriangle size={11} color="#fff" />}
+                  {(ds.icon === "dot" || ds.icon === "future") && <span className="w-2 h-2 rounded-full" style={{ background: ds.icon === "future" ? "#9CA3AF" : "#fff" }} />}
+                </div>
+                <div className="rounded-xl border mb-2 overflow-hidden" style={{ borderColor: "#E8ECF0", background: "#fff" }}>
+                  <button onClick={() => toggle(ci.day_number)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold" style={{ color: "#1A2332" }}>Day {ci.day_number}</span>
+                      <span className="text-xs" style={{ color: "#6B7280" }}>
+                        {new Date(ci.scheduled_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                      <RxPriorityBadge priority={ci.priority} small />
+                      {ci.status === "COMPLETED" && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#15803D" }}>Done</span>}
+                      {(missed || ci.status === "MISSED") && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full" style={{ background: "#FFFBEB", color: "#B45309" }}>Missed</span>}
+                    </div>
+                    {open ? <ChevronUp size={14} color="#9CA3AF" /> : <ChevronDown size={14} color="#9CA3AF" />}
+                  </button>
+                  {open && (
+                    <div className="px-4 pb-4 border-t space-y-2" style={{ borderColor: "#F3F4F6" }}>
+                      <div className="text-[11px] font-semibold uppercase tracking-wider mt-3 mb-1" style={{ color: "#9CA3AF" }}>Check-in Questions</div>
+                      {ci.questions.map((q, qi) => (
+                        <div key={qi} className="flex items-start gap-2 text-sm" style={{ color: "#374151" }}>
+                          <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5" style={{ background: "#E8F5F1", color: "#0D7A5F" }}>{qi + 1}</span>
+                          {q}
+                        </div>
+                      ))}
+                      {ci.escalate_if && (
+                        <div className="mt-2 p-2.5 rounded-lg text-xs" style={{ background: "#FEF2F2", color: "#B91C1C" }}>
+                          <strong>Escalate if:</strong> {ci.escalate_if}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RxPriorityBadge({ priority, small = false }: { priority: "HIGH" | "ROUTINE"; small?: boolean }) {
+  return (
+    <span className={`font-bold uppercase rounded-full ${small ? "text-[9px] px-1.5 py-0.5" : "text-[10px] px-2 py-0.5"}`}
+      style={{ background: priority === "HIGH" ? "#FEE2E2" : "#E8F5F1", color: priority === "HIGH" ? "#B91C1C" : "#0D7A5F" }}>
+      {priority}
+    </span>
   );
 }
 
