@@ -44,6 +44,7 @@ function PatientLayout() {
     "/reports":      "Health Reports",
     "/care-plan":    "My Care Plan",
     "/appointments": "Appointments",
+    "/share":        "Share Records",
     "/aara":         "Talk to AARA",
     "/profile":      "Profile",
   };
@@ -79,7 +80,7 @@ function PatientLayout() {
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto h-full">
           <Outlet />
         </div>
       </SidebarInset>

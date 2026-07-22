@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileText, ClipboardList, MessageCircle, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FileText, ClipboardList, MessageCircle, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays, ShieldCheck, QrCode } from "lucide-react";
 import { MedSevaLogo } from "./MedSevaLogo";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,6 +19,7 @@ function PatientSidebarInner() {
     { to: "/drug-safety",  label: "Drug Safety",              icon: ShieldCheck },
     { to: "/care-plan",    label: t("sidebar.carePlan"),      icon: ClipboardList },
     { to: "/appointments", label: t("sidebar.appointments") ?? "Appointments", icon: CalendarDays },
+    { to: "/share",        label: "Share Records",            icon: QrCode },
     { to: "/aara",         label: t("sidebar.aara"),          icon: MessageCircle },
     { to: "/profile",      label: t("sidebar.profile"),       icon: User },
   ];

@@ -290,6 +290,26 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["record_shares"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["record_shares"]["Insert"]>;
       };
+      qr_shares: {
+        Row: {
+          id: string;
+          patient_id: string;
+          token: string;
+          pin: string;
+          share_vitals: boolean;
+          share_reports: boolean;
+          share_medications: boolean;
+          share_profile: boolean;
+          is_active: boolean;
+          expires_at: string | null;
+          created_at: string;
+          last_accessed_at: string | null;
+          access_count: number;
+          access_log: Json;
+        };
+        Insert: Omit<Database["public"]["Tables"]["qr_shares"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["qr_shares"]["Insert"]>;
+      };
       caregivers: {
         Row: {
           id: string;

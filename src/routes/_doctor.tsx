@@ -36,10 +36,11 @@ export const Route = createFileRoute("/_doctor")({
     const completed = dp?.profile_completed ?? false;
     const status = dp?.verification_status ?? null;
     const isProfileRoute = location.pathname === "/doctor/profile";
+    const isScanQrRoute = location.pathname === "/doctor/scan-qr";
 
-    // Not completed or not approved → force to profile page (which is always accessible)
+    // Not completed or not approved → force to profile page
     if (!completed || status !== "approved") {
-      if (!isProfileRoute) throw redirect({ to: "/doctor/profile" });
+      if (!isProfileRoute && !isScanQrRoute) throw redirect({ to: "/doctor/profile" });
     }
     // Approved doctors can access everything including /doctor/profile
   },
