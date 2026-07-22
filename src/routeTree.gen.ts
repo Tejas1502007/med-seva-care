@@ -20,6 +20,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiVapiCallRouteImport } from './routes/api/vapi-call'
 import { Route as ApiMedAnalysisRouteImport } from './routes/api/med-analysis'
 import { Route as ApiDrugInteractionRouteImport } from './routes/api/drug-interaction'
+import { Route as ApiDischargeProtocolRouteImport } from './routes/api/discharge-protocol'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAnalyzeReportRouteImport } from './routes/api/analyze-report'
 import { Route as PatientShareRouteImport } from './routes/_patient.share'
@@ -94,6 +95,11 @@ const ApiMedAnalysisRoute = ApiMedAnalysisRouteImport.update({
 const ApiDrugInteractionRoute = ApiDrugInteractionRouteImport.update({
   id: '/api/drug-interaction',
   path: '/api/drug-interaction',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDischargeProtocolRoute = ApiDischargeProtocolRouteImport.update({
+  id: '/api/discharge-protocol',
+  path: '/api/discharge-protocol',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -229,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/share': typeof PatientShareRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/discharge-protocol': typeof ApiDischargeProtocolRoute
   '/api/drug-interaction': typeof ApiDrugInteractionRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
@@ -262,6 +269,7 @@ export interface FileRoutesByTo {
   '/share': typeof PatientShareRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/discharge-protocol': typeof ApiDischargeProtocolRoute
   '/api/drug-interaction': typeof ApiDrugInteractionRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
@@ -299,6 +307,7 @@ export interface FileRoutesById {
   '/_patient/share': typeof PatientShareRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/discharge-protocol': typeof ApiDischargeProtocolRoute
   '/api/drug-interaction': typeof ApiDrugInteractionRoute
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
@@ -334,6 +343,7 @@ export interface FileRouteTypes {
     | '/share'
     | '/api/analyze-report'
     | '/api/chat'
+    | '/api/discharge-protocol'
     | '/api/drug-interaction'
     | '/api/med-analysis'
     | '/api/vapi-call'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/share'
     | '/api/analyze-report'
     | '/api/chat'
+    | '/api/discharge-protocol'
     | '/api/drug-interaction'
     | '/api/med-analysis'
     | '/api/vapi-call'
@@ -403,6 +414,7 @@ export interface FileRouteTypes {
     | '/_patient/share'
     | '/api/analyze-report'
     | '/api/chat'
+    | '/api/discharge-protocol'
     | '/api/drug-interaction'
     | '/api/med-analysis'
     | '/api/vapi-call'
@@ -431,6 +443,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ApiAnalyzeReportRoute: typeof ApiAnalyzeReportRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiDischargeProtocolRoute: typeof ApiDischargeProtocolRoute
   ApiDrugInteractionRoute: typeof ApiDrugInteractionRoute
   ApiMedAnalysisRoute: typeof ApiMedAnalysisRoute
   ApiVapiCallRoute: typeof ApiVapiCallRoute
@@ -520,6 +533,13 @@ declare module '@tanstack/react-router' {
       path: '/api/drug-interaction'
       fullPath: '/api/drug-interaction'
       preLoaderRoute: typeof ApiDrugInteractionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/discharge-protocol': {
+      id: '/api/discharge-protocol'
+      path: '/api/discharge-protocol'
+      fullPath: '/api/discharge-protocol'
+      preLoaderRoute: typeof ApiDischargeProtocolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -763,6 +783,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ApiAnalyzeReportRoute: ApiAnalyzeReportRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiDischargeProtocolRoute: ApiDischargeProtocolRoute,
   ApiDrugInteractionRoute: ApiDrugInteractionRoute,
   ApiMedAnalysisRoute: ApiMedAnalysisRoute,
   ApiVapiCallRoute: ApiVapiCallRoute,

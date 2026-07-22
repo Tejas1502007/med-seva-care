@@ -7,6 +7,10 @@ import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_patient/aara")({
   head: () => ({ meta: [{ title: "AARA — Your AI Health Companion" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    checkin: search.checkin as string | undefined,
+    day: search.day as string | undefined,
+  }),
   component: AaraPage,
 });
 
@@ -26,12 +30,20 @@ const WELCOME: Message = {
 };
 
 function AaraPage() {
+  const { checkin, day } = Route.useSearch();
+  const isCheckinMode = checkin === "true" && !!day;
+
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [checkinDone, setCheckinDone] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tracks questions answered during a checkin session
+  const checkinAnswersRef = useRef<{ question: string; answer: string }[]>([]);
+  const checkinQuestionsRef = useRef<string[]>([]);
+  const checkinIdRef = useRef<string | null>(null);
 
   // Load from localStorage
   useEffect(() => {
@@ -48,6 +60,44 @@ function AaraPage() {
     }
     setHydrated(true);
   }, []);
+
+  // If launched from discharge-protocol check-in, pre-load questions
+  useEffect(() => {
+    if (!isCheckinMode || !hydrated) return;
+
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: ci } = await supabase
+        .from("aara_scheduled_checkins")
+        .select("id, questions, day_number")
+        .eq("user_id", user.id)
+        .eq("day_number", Number(day))
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!ci || !ci.questions?.length) return;
+
+      checkinIdRef.current = ci.id;
+      checkinQuestionsRef.current = ci.questions as string[];
+
+      // Clear existing messages and start with check-in context
+      const openingMsg: Message = {
+        id: `checkin-open-${Date.now()}`,
+        role: "assistant",
+        content: `Namaste 🙏 I'm here for your **Day ${ci.day_number} recovery check-in**. I'll ask you ${ci.questions.length} quick questions — please answer each one honestly so I can track your recovery.\n\n**${ci.questions[0]}**`,
+      };
+
+      setMessages([openingMsg]);
+      localStorage.removeItem(STORAGE_KEY);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   // Save to localStorage
   useEffect(() => {
@@ -86,6 +136,59 @@ function AaraPage() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
+
+    // ── Checkin mode: track answers and advance questions ──
+    if (isCheckinMode && checkinIdRef.current && !checkinDone) {
+      const allQuestions = checkinQuestionsRef.current;
+      // Count how many user messages have been sent (each = one answer)
+      const userMsgCount = messages.filter((m) => m.role === "user").length + 1; // +1 for current
+      checkinAnswersRef.current.push({
+        question: allQuestions[userMsgCount - 1] ?? "",
+        answer: trimmed,
+      });
+
+      const nextQuestion = allQuestions[userMsgCount];
+
+      if (nextQuestion) {
+        // Ask next question as AARA response
+        setTimeout(() => {
+          const nextMsg: Message = {
+            id: `checkin-q-${Date.now()}`,
+            role: "assistant",
+            content: `Got it, thank you. **${nextQuestion}**`,
+          };
+          setMessages((prev) => [...prev, nextMsg]);
+          setIsLoading(false);
+        }, 600);
+        return;
+      }
+
+      // All questions answered — mark checkin complete
+      if (!checkinDone) {
+        setCheckinDone(true);
+        const answers = checkinAnswersRef.current;
+        supabase
+          .from("aara_scheduled_checkins")
+          .update({
+            status: "COMPLETED",
+            completed_at: new Date().toISOString(),
+            response_data: answers,
+          })
+          .eq("id", checkinIdRef.current)
+          .then(() => {
+            toast.success("Check-in complete! Great job staying on track with your recovery.");
+          });
+
+        const doneMsg: Message = {
+          id: `checkin-done-${Date.now()}`,
+          role: "assistant",
+          content: `Wonderful! ✅ I've recorded all your answers for **Day ${day}** check-in. Your recovery team will review your responses.\n\nIs there anything else you'd like to discuss, or any health concern you want to share?`,
+        };
+        setMessages((prev) => [...prev, doneMsg]);
+        setIsLoading(false);
+        return;
+      }
+    }
 
     try {
       // Call API

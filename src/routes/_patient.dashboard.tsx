@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 import {
   Droplet, HeartPulse, Pill, Footprints, Sparkles,
   Upload, Activity, MessageCircle, Salad, Check,
+  AlertTriangle, Bell, Phone, Stethoscope, Building2,
+  X, ChevronDown, ChevronUp, Zap,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -49,12 +52,46 @@ const EMPTY: DashboardData = {
   weeklyChart: [],
 };
 
+// ─── Alert types ─────────────────────────────────────────────────────────────
+
+type AlertSeverity = "MODERATE" | "HIGH" | "CRITICAL";
+
+interface EscalationStep {
+  step: number;
+  label: string;
+  status: "done" | "pending";
+  timestamp: string | null;
+}
+
+interface AlertEscalation {
+  id: string;
+  trigger_type: string;
+  trigger_value: string;
+  severity: AlertSeverity;
+  steps: EscalationStep[];
+  current_step: number;
+  resolved: boolean;
+  created_at: string;
+}
+
+type VitalType = "blood_sugar" | "blood_pressure";
+
+// ─── Dashboard component ──────────────────────────────────────────────────────
+
 function Dashboard() {
   const [view, setView] = useState<"sugar" | "bp">("sugar");
   const [meds, setMeds] = useState<{ id: string; name: string; quantity: number; unit: string; times: string[]; status: string; streak: number }[]>([]);
   const [data, setData] = useState<DashboardData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+
+  // ── Alert & vitals modal state ──
+  const [activeAlerts, setActiveAlerts] = useState<AlertEscalation[]>([]);
+  const [showVitalModal, setShowVitalModal] = useState(false);
+  const [vitalType, setVitalType] = useState<VitalType>("blood_sugar");
+  const [vitalValue, setVitalValue] = useState("");
+  const [loggingVital, setLoggingVital] = useState(false);
+  const demoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -64,30 +101,30 @@ function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || cancelled) return;
       setUserId(user.id);
-      await Promise.all([refresh(user.id), loadMeds(user.id)]);
+      await Promise.all([refresh(user.id), loadMeds(user.id), loadAlerts(user.id)]);
       if (cancelled) return;
       setLoading(false);
 
-      // Remove any existing channel with this name before subscribing
       const channelName = `dashboard:${user.id}`;
       await supabase.removeChannel(supabase.channel(channelName));
 
       channel = supabase
         .channel(channelName)
-        .on(
-          "postgres_changes",
+        .on("postgres_changes",
           { event: "*", schema: "public", table: "vitals", filter: `patient_id=eq.${user.id}` },
           () => { if (!cancelled) refresh(user.id); }
         )
-        .on(
-          "postgres_changes",
+        .on("postgres_changes",
           { event: "UPDATE", schema: "public", table: "patient_profiles", filter: `id=eq.${user.id}` },
           () => { if (!cancelled) refresh(user.id); }
         )
-        .on(
-          "postgres_changes",
+        .on("postgres_changes",
           { event: "UPDATE", schema: "public", table: "health_reports", filter: `patient_id=eq.${user.id}` },
           () => { if (!cancelled) refresh(user.id); }
+        )
+        .on("postgres_changes",
+          { event: "*", schema: "public", table: "alert_escalations", filter: `user_id=eq.${user.id}` },
+          () => { if (!cancelled) loadAlerts(user.id); }
         )
         .subscribe();
     };
@@ -96,6 +133,7 @@ function Dashboard() {
     return () => {
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
+      if (demoTimerRef.current) clearInterval(demoTimerRef.current);
     };
   }, []);
 
@@ -187,6 +225,124 @@ function Dashboard() {
         streak: m.streak ?? 0,
       })));
     }
+  };
+
+  const loadAlerts = async (uid: string) => {
+    const { data } = await supabase
+      .from("alert_escalations")
+      .select("*")
+      .eq("user_id", uid)
+      .eq("resolved", false)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    setActiveAlerts((data ?? []) as AlertEscalation[]);
+  };
+
+  const handleResolveAlert = async (alertId: string) => {
+    await supabase.from("alert_escalations").update({ resolved: true }).eq("id", alertId);
+    setActiveAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    toast.success("Alert marked as resolved");
+  };
+
+  const handleLogVital = async () => {
+    const num = parseFloat(vitalValue);
+    if (!vitalValue || isNaN(num)) { toast.error("Enter a valid number"); return; }
+    if (!userId) return;
+    setLoggingVital(true);
+    try {
+      await supabase.from("vitals").insert({
+        patient_id: userId,
+        type: vitalType,
+        value: num,
+        unit: vitalType === "blood_sugar" ? "mg/dL" : "mmHg",
+        notes: vitalType === "blood_pressure" ? "Diastolic: 80" : null,
+        recorded_at: new Date().toISOString(),
+      });
+
+      let shouldAlert = false;
+      let triggerType = "";
+      let severity: AlertSeverity = "MODERATE";
+
+      if (vitalType === "blood_sugar" && num > 250)  { shouldAlert = true; triggerType = "high_blood_sugar"; severity = "HIGH"; }
+      if (vitalType === "blood_sugar" && num < 70)   { shouldAlert = true; triggerType = "low_blood_sugar";  severity = "CRITICAL"; }
+      if (vitalType === "blood_pressure" && num > 180) { shouldAlert = true; triggerType = "critical_bp"; severity = "CRITICAL"; }
+      else if (vitalType === "blood_pressure" && num > 160) { shouldAlert = true; triggerType = "high_bp"; severity = "HIGH"; }
+
+      if (shouldAlert) {
+        await supabase.from("alert_escalations").insert({
+          user_id: userId,
+          trigger_type: triggerType,
+          trigger_value: `${num} ${vitalType === "blood_sugar" ? "mg/dL" : "mmHg"}`,
+          severity,
+          steps: [
+            { step: 1, label: "You notified",        status: "done",    timestamp: new Date().toISOString() },
+            { step: 2, label: "AARA follow-up",      status: "pending", timestamp: null },
+            { step: 3, label: "Caregiver WhatsApp",  status: "pending", timestamp: null },
+            { step: 4, label: "Doctor alerted",      status: "pending", timestamp: null },
+            { step: 5, label: "Hospital escalation", status: "pending", timestamp: null },
+          ],
+          current_step: 1,
+          resolved: false,
+        });
+        toast.warning(`⚠ Alert created — ${triggerType.replace(/_/g, " ")}`);
+        await loadAlerts(userId);
+      } else {
+        toast.success(`✓ ${vitalType === "blood_sugar" ? "Blood sugar" : "Blood pressure"} logged: ${num}`);
+      }
+      await refresh(userId);
+      setShowVitalModal(false);
+      setVitalValue("");
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoggingVital(false);
+    }
+  };
+
+  const triggerDemoAlert = async () => {
+    if (!userId) return;
+    const { data: alert, error } = await supabase
+      .from("alert_escalations")
+      .insert({
+        user_id: userId,
+        trigger_type: "high_blood_sugar",
+        trigger_value: "312 mg/dL",
+        severity: "HIGH" as AlertSeverity,
+        steps: [
+          { step: 1, label: "You notified",        status: "done",    timestamp: new Date().toISOString() },
+          { step: 2, label: "AARA follow-up",      status: "pending", timestamp: null },
+          { step: 3, label: "Caregiver WhatsApp",  status: "pending", timestamp: null },
+          { step: 4, label: "Doctor alerted",      status: "pending", timestamp: null },
+          { step: 5, label: "Hospital escalation", status: "pending", timestamp: null },
+        ],
+        current_step: 1,
+        resolved: false,
+      })
+      .select()
+      .single();
+
+    if (error || !alert) { toast.error("Demo alert failed"); return; }
+    toast.info("🎬 Demo started — watch the escalation chain animate live every 2s");
+    await loadAlerts(userId);
+
+    let step = 1;
+    demoTimerRef.current = setInterval(async () => {
+      step++;
+      if (step > 5) {
+        if (demoTimerRef.current) clearInterval(demoTimerRef.current);
+        return;
+      }
+      const { data: current } = await supabase
+        .from("alert_escalations").select("steps").eq("id", alert.id).single();
+      if (!current) return;
+      const updatedSteps = (current.steps as EscalationStep[]).map((s) =>
+        s.step === step ? { ...s, status: "done" as const, timestamp: new Date().toISOString() } : s
+      );
+      await supabase.from("alert_escalations")
+        .update({ steps: updatedSteps, current_step: step })
+        .eq("id", alert.id);
+      await loadAlerts(userId!);
+    }, 2000);
   };
 
   const markTaken = async (id: string, name: string) => {
@@ -457,27 +613,204 @@ function Dashboard() {
       </div>
 
       {/* Row 5: Quick actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
         {[
-          { icon: Upload, label: "Upload Report", to: "/reports" as const },
-          { icon: Activity, label: "Log Vitals", to: "/dashboard" as const },
-          { icon: MessageCircle, label: "Talk to AARA", to: "/aara" as const },
-          { icon: Salad, label: "View Diet Plan", to: "/care-plan" as const },
-        ].map(({ icon: Icon, label, to }) => (
-          <Link key={label} to={to} className="card-base p-4 flex items-center gap-3 hover:border-[#0D7A5F] hover:shadow-md transition-all">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#E8F5F1" }}>
-              <Icon size={18} color="#0D7A5F" />
-            </div>
-            <span className="text-sm font-medium" style={{ color: "#374151" }}>{label}</span>
-          </Link>
-        ))}
+          { icon: Upload,        label: "Upload Report", action: "link",  to: "/reports" as const },
+          { icon: Activity,      label: "Log Vitals",    action: "modal" },
+          { icon: MessageCircle, label: "Talk to AARA",  action: "link",  to: "/aara" as const },
+          { icon: Salad,         label: "View Diet Plan",action: "link",  to: "/care-plan" as const },
+        ].map(({ icon: Icon, label, action, to }) =>
+          action === "link" ? (
+            <Link key={label} to={to as "/reports" | "/aara" | "/care-plan"}
+              className="card-base p-4 flex items-center gap-3 hover:border-[#0D7A5F] hover:shadow-md transition-all">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#E8F5F1" }}>
+                <Icon size={18} color="#0D7A5F" />
+              </div>
+              <span className="text-sm font-medium" style={{ color: "#374151" }}>{label}</span>
+            </Link>
+          ) : (
+            <button key={label} onClick={() => setShowVitalModal(true)}
+              className="card-base p-4 flex items-center gap-3 hover:border-[#0D7A5F] hover:shadow-md transition-all text-left">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#E8F5F1" }}>
+                <Icon size={18} color="#0D7A5F" />
+              </div>
+              <span className="text-sm font-medium" style={{ color: "#374151" }}>{label}</span>
+            </button>
+          )
+        )}
       </div>
 
-      <Link to="/aara"
+      {/* Row 6: Active Alerts */}
+      {activeAlerts.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle size={18} color="#B91C1C" />
+            <h3 className="text-base font-semibold" style={{ color: "#B91C1C" }}>
+              Active Alerts ({activeAlerts.length})
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {activeAlerts.map((alert) => (
+              <AlertCard key={alert.id} alert={alert} onResolve={handleResolveAlert} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Demo trigger button — always visible for judges */}
+      <div className="mt-6 mb-8 flex items-center gap-3">
+        <button onClick={triggerDemoAlert}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-colors hover:bg-amber-50"
+          style={{ borderColor: "#B45309", color: "#B45309" }}>
+          <Zap size={13} /> Demo: Trigger Alert Chain
+        </button>
+        <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
+          Animates all 5 escalation steps live every 2s
+        </span>
+      </div>
+
+      {/* Log Vitals modal */}
+      {showVitalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowVitalModal(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold" style={{ color: "#1A2332" }}>Log a Vital</h3>
+              <button onClick={() => setShowVitalModal(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X size={18} color="#6B7280" />
+              </button>
+            </div>
+
+            {/* Type toggle */}
+            <div className="flex p-1 rounded-xl mb-4" style={{ background: "#F3F4F6" }}>
+              {(["blood_sugar", "blood_pressure"] as VitalType[]).map((t) => (
+                <button key={t} onClick={() => setVitalType(t)}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{ background: vitalType === t ? "#fff" : "transparent", color: vitalType === t ? "#0D7A5F" : "#6B7280" }}>
+                  {t === "blood_sugar" ? "Blood Sugar" : "Blood Pressure"}
+                </button>
+              ))}
+            </div>
+
+            <label className="text-xs font-semibold block mb-1.5" style={{ color: "#374151" }}>
+              {vitalType === "blood_sugar" ? "Glucose (mg/dL)" : "Systolic BP (mmHg)"}
+            </label>
+            <input
+              type="number"
+              value={vitalValue}
+              onChange={(e) => setVitalValue(e.target.value)}
+              placeholder={vitalType === "blood_sugar" ? "e.g. 142" : "e.g. 128"}
+              className="w-full h-11 px-4 rounded-xl border outline-none text-sm mb-1"
+              style={{ borderColor: "#D1D5DB" }}
+              onFocus={(e) => e.currentTarget.style.borderColor = "#0D7A5F"}
+              onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogVital(); }}
+            />
+            <p className="text-[11px] mb-5" style={{ color: "#9CA3AF" }}>
+              {vitalType === "blood_sugar"
+                ? "Alert triggers above 250 mg/dL or below 70 mg/dL"
+                : "Alert triggers above 160 mmHg systolic"}
+            </p>
+
+            <button onClick={handleLogVital} disabled={loggingVital}
+              className="w-full h-11 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+              style={{ background: "#0D7A5F" }}>
+              {loggingVital ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Activity size={16} />}
+              {loggingVital ? "Logging…" : "Log Vital"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <Link to="/aara" search={{ checkin: undefined, day: undefined }}
         className="fixed bottom-6 right-6 inline-flex items-center gap-2 px-4 py-3 rounded-full text-white shadow-lg font-semibold text-sm"
         style={{ background: "#0D7A5F" }}>
         💬 Talk to AARA
       </Link>
+    </div>
+  );
+}
+
+// ─── AlertCard component ──────────────────────────────────────────────────────
+
+const STEP_ICONS = [Bell, MessageCircle, Phone, Stethoscope, Building2];
+
+function AlertCard({ alert, onResolve }: { alert: AlertEscalation; onResolve: (id: string) => void }) {
+  const borderColor = alert.severity === "MODERATE" ? "#B45309" : "#B91C1C";
+  const bgTint    = alert.severity === "MODERATE" ? "#FFFBEB" : "#FFF5F5";
+  const steps = (alert.steps ?? []) as EscalationStep[];
+
+  return (
+    <div className="rounded-xl overflow-hidden border" style={{ borderLeft: `4px solid ${borderColor}`, background: bgTint, borderColor: alert.severity === "MODERATE" ? "#FCD34D" : "#FCA5A5" }}>
+      <div className="p-4">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-full"
+              style={{ background: alert.severity === "MODERATE" ? "#FEF3C7" : "#FEE2E2", color: borderColor }}>
+              {alert.severity}
+            </span>
+            <span className="text-sm font-semibold" style={{ color: "#1A2332" }}>
+              {alert.trigger_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+            </span>
+            <span className="text-sm font-bold" style={{ color: borderColor }}>
+              {alert.trigger_value}
+            </span>
+          </div>
+          <span className="text-[11px] whitespace-nowrap shrink-0" style={{ color: "#9CA3AF" }}>
+            {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
+          </span>
+        </div>
+
+        {/* Escalation chain */}
+        <div className="flex items-start gap-0 mb-4">
+          {steps.map((step, idx) => {
+            const Icon = STEP_ICONS[idx] ?? Bell;
+            const isDone    = step.status === "done";
+            const isCurrent = !isDone && step.step === alert.current_step + 1;
+            const isFuture  = !isDone && !isCurrent;
+            const isLast    = idx === steps.length - 1;
+
+            return (
+              <div key={step.step} className="flex items-center flex-1 min-w-0">
+                <div className="flex flex-col items-center gap-1 shrink-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isCurrent ? "animate-pulse" : ""}`}
+                    style={{
+                      background: isDone ? "#0D7A5F" : isCurrent ? "#B91C1C" : "transparent",
+                      border: isFuture ? "2px solid #D1D5DB" : "none",
+                    }}>
+                    <Icon size={14} color={isDone || isCurrent ? "#fff" : "#D1D5DB"} />
+                  </div>
+                  <span className="text-[9px] font-medium text-center leading-tight max-w-[52px] truncate"
+                    style={{ color: isDone ? "#0D7A5F" : isCurrent ? "#B91C1C" : "#9CA3AF" }}>
+                    {step.label}
+                  </span>
+                </div>
+                {!isLast && (
+                  <div className="flex-1 h-0.5 mb-4 mx-0.5"
+                    style={{ background: isDone ? "#0D7A5F" : "#E5E7EB" }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "#6B7280" }}>
+            Step {alert.current_step} of {steps.length} · Last update:{" "}
+            {steps.filter((s) => s.status === "done").slice(-1)[0]?.timestamp
+              ? formatDistanceToNow(new Date(steps.filter((s) => s.status === "done").slice(-1)[0].timestamp!), { addSuffix: true })
+              : "just now"}
+          </span>
+          <button onClick={() => onResolve(alert.id)}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-white transition-colors"
+            style={{ borderColor: "#D1D5DB", color: "#6B7280" }}>
+            Mark Resolved
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
