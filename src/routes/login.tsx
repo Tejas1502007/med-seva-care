@@ -32,22 +32,23 @@ function LoginPage() {
       }
       if (!data.user) { toast.error("Login failed. Please try again."); setLoading(false); return; }
 
+      // Use metadata first (instant), fall back to DB only if missing
+      const metaRole = data.user.user_metadata?.role as string | undefined;
+      if (metaRole === "admin") { window.location.href = "/admin/"; return; }
+      if (metaRole === "doctor") { window.location.href = "/doctor"; return; }
+      if (metaRole === "patient") { window.location.href = "/dashboard"; return; }
+
+      // Fallback: fetch role from DB (only if metadata missing)
       const { data: profileData } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", data.user.id)
-        .single();
+        .maybeSingle();
 
       const userRole = profileData?.role ?? "patient";
-
-      // Hard redirect — clears all cached route state
-      if (userRole === "admin") {
-        window.location.href = "/admin/";
-      } else if (userRole === "doctor") {
-        window.location.href = "/doctor";
-      } else {
-        window.location.href = "/dashboard";
-      }
+      if (userRole === "admin") { window.location.href = "/admin/"; }
+      else if (userRole === "doctor") { window.location.href = "/doctor"; }
+      else { window.location.href = "/dashboard"; }
     } catch {
       toast.error("An unexpected error occurred");
       setLoading(false);

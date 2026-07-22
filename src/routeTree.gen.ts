@@ -15,6 +15,7 @@ import { Route as PatientRouteImport } from './routes/_patient'
 import { Route as DoctorRouteImport } from './routes/_doctor'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ShareTokenRouteImport } from './routes/share.$token'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiVapiCallRouteImport } from './routes/api/vapi-call'
 import { Route as ApiMedAnalysisRouteImport } from './routes/api/med-analysis'
@@ -22,6 +23,7 @@ import { Route as ApiDrugInteractionRouteImport } from './routes/api/drug-intera
 import { Route as ApiDischargeProtocolRouteImport } from './routes/api/discharge-protocol'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAnalyzeReportRouteImport } from './routes/api/analyze-report'
+import { Route as PatientShareRouteImport } from './routes/_patient.share'
 import { Route as PatientReportsRouteImport } from './routes/_patient.reports'
 import { Route as PatientProfileRouteImport } from './routes/_patient.profile'
 import { Route as PatientDrugSafetyRouteImport } from './routes/_patient.drug-safety'
@@ -31,8 +33,12 @@ import { Route as PatientAppointmentsRouteImport } from './routes/_patient.appoi
 import { Route as PatientAaraRouteImport } from './routes/_patient.aara'
 import { Route as DoctorDoctorRouteImport } from './routes/_doctor.doctor'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin.admin.index'
+import { Route as ApiQrShareViewRouteImport } from './routes/api/qr-share/view'
+import { Route as ApiQrShareRevokeRouteImport } from './routes/api/qr-share/revoke'
+import { Route as ApiQrShareCreateRouteImport } from './routes/api/qr-share/create'
 import { Route as ApiNutritionSearchRouteImport } from './routes/api/nutrition/search'
 import { Route as ApiNutritionGeneratePlanRouteImport } from './routes/api/nutrition/generate-plan'
+import { Route as DoctorDoctorScanQrRouteImport } from './routes/_doctor.doctor.scan-qr'
 import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor.doctor.profile'
 import { Route as DoctorDoctorAppointmentsRouteImport } from './routes/_doctor.doctor.appointments'
 import { Route as AdminAdminPatientsRouteImport } from './routes/_admin.admin.patients'
@@ -64,6 +70,11 @@ const AdminRoute = AdminRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShareTokenRoute = ShareTokenRouteImport.update({
+  id: '/share/$token',
+  path: '/share/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -100,6 +111,11 @@ const ApiAnalyzeReportRoute = ApiAnalyzeReportRouteImport.update({
   id: '/api/analyze-report',
   path: '/api/analyze-report',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PatientShareRoute = PatientShareRouteImport.update({
+  id: '/share',
+  path: '/share',
+  getParentRoute: () => PatientRoute,
 } as any)
 const PatientReportsRoute = PatientReportsRouteImport.update({
   id: '/reports',
@@ -146,6 +162,21 @@ const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiQrShareViewRoute = ApiQrShareViewRouteImport.update({
+  id: '/api/qr-share/view',
+  path: '/api/qr-share/view',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiQrShareRevokeRoute = ApiQrShareRevokeRouteImport.update({
+  id: '/api/qr-share/revoke',
+  path: '/api/qr-share/revoke',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiQrShareCreateRoute = ApiQrShareCreateRouteImport.update({
+  id: '/api/qr-share/create',
+  path: '/api/qr-share/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNutritionSearchRoute = ApiNutritionSearchRouteImport.update({
   id: '/api/nutrition/search',
   path: '/api/nutrition/search',
@@ -157,6 +188,11 @@ const ApiNutritionGeneratePlanRoute =
     path: '/api/nutrition/generate-plan',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DoctorDoctorScanQrRoute = DoctorDoctorScanQrRouteImport.update({
+  id: '/scan-qr',
+  path: '/scan-qr',
+  getParentRoute: () => DoctorDoctorRoute,
+} as any)
 const DoctorDoctorProfileRoute = DoctorDoctorProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -196,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/drug-safety': typeof PatientDrugSafetyRoute
   '/profile': typeof PatientProfileRoute
   '/reports': typeof PatientReportsRoute
+  '/share': typeof PatientShareRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
   '/api/discharge-protocol': typeof ApiDischargeProtocolRoute
@@ -203,12 +240,17 @@ export interface FileRoutesByFullPath {
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/share/$token': typeof ShareTokenRoute
   '/admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/patients': typeof AdminAdminPatientsRoute
   '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
+  '/doctor/scan-qr': typeof DoctorDoctorScanQrRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
+  '/api/qr-share/create': typeof ApiQrShareCreateRoute
+  '/api/qr-share/revoke': typeof ApiQrShareRevokeRoute
+  '/api/qr-share/view': typeof ApiQrShareViewRoute
   '/admin/': typeof AdminAdminIndexRoute
   '/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
@@ -224,6 +266,7 @@ export interface FileRoutesByTo {
   '/drug-safety': typeof PatientDrugSafetyRoute
   '/profile': typeof PatientProfileRoute
   '/reports': typeof PatientReportsRoute
+  '/share': typeof PatientShareRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
   '/api/discharge-protocol': typeof ApiDischargeProtocolRoute
@@ -231,12 +274,17 @@ export interface FileRoutesByTo {
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/share/$token': typeof ShareTokenRoute
   '/admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/patients': typeof AdminAdminPatientsRoute
   '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
+  '/doctor/scan-qr': typeof DoctorDoctorScanQrRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
+  '/api/qr-share/create': typeof ApiQrShareCreateRoute
+  '/api/qr-share/revoke': typeof ApiQrShareRevokeRoute
+  '/api/qr-share/view': typeof ApiQrShareViewRoute
   '/admin': typeof AdminAdminIndexRoute
   '/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
@@ -256,6 +304,7 @@ export interface FileRoutesById {
   '/_patient/drug-safety': typeof PatientDrugSafetyRoute
   '/_patient/profile': typeof PatientProfileRoute
   '/_patient/reports': typeof PatientReportsRoute
+  '/_patient/share': typeof PatientShareRoute
   '/api/analyze-report': typeof ApiAnalyzeReportRoute
   '/api/chat': typeof ApiChatRoute
   '/api/discharge-protocol': typeof ApiDischargeProtocolRoute
@@ -263,12 +312,17 @@ export interface FileRoutesById {
   '/api/med-analysis': typeof ApiMedAnalysisRoute
   '/api/vapi-call': typeof ApiVapiCallRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/share/$token': typeof ShareTokenRoute
   '/_admin/admin/doctors': typeof AdminAdminDoctorsRoute
   '/_admin/admin/patients': typeof AdminAdminPatientsRoute
   '/_doctor/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
+  '/_doctor/doctor/scan-qr': typeof DoctorDoctorScanQrRoute
   '/api/nutrition/generate-plan': typeof ApiNutritionGeneratePlanRoute
   '/api/nutrition/search': typeof ApiNutritionSearchRoute
+  '/api/qr-share/create': typeof ApiQrShareCreateRoute
+  '/api/qr-share/revoke': typeof ApiQrShareRevokeRoute
+  '/api/qr-share/view': typeof ApiQrShareViewRoute
   '/_admin/admin/': typeof AdminAdminIndexRoute
   '/_doctor/doctor/patient/$id': typeof DoctorDoctorPatientIdRoute
 }
@@ -286,6 +340,7 @@ export interface FileRouteTypes {
     | '/drug-safety'
     | '/profile'
     | '/reports'
+    | '/share'
     | '/api/analyze-report'
     | '/api/chat'
     | '/api/discharge-protocol'
@@ -293,12 +348,17 @@ export interface FileRouteTypes {
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
+    | '/share/$token'
     | '/admin/doctors'
     | '/admin/patients'
     | '/doctor/appointments'
     | '/doctor/profile'
+    | '/doctor/scan-qr'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
+    | '/api/qr-share/create'
+    | '/api/qr-share/revoke'
+    | '/api/qr-share/view'
     | '/admin/'
     | '/doctor/patient/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -314,6 +374,7 @@ export interface FileRouteTypes {
     | '/drug-safety'
     | '/profile'
     | '/reports'
+    | '/share'
     | '/api/analyze-report'
     | '/api/chat'
     | '/api/discharge-protocol'
@@ -321,12 +382,17 @@ export interface FileRouteTypes {
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
+    | '/share/$token'
     | '/admin/doctors'
     | '/admin/patients'
     | '/doctor/appointments'
     | '/doctor/profile'
+    | '/doctor/scan-qr'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
+    | '/api/qr-share/create'
+    | '/api/qr-share/revoke'
+    | '/api/qr-share/view'
     | '/admin'
     | '/doctor/patient/$id'
   id:
@@ -345,6 +411,7 @@ export interface FileRouteTypes {
     | '/_patient/drug-safety'
     | '/_patient/profile'
     | '/_patient/reports'
+    | '/_patient/share'
     | '/api/analyze-report'
     | '/api/chat'
     | '/api/discharge-protocol'
@@ -352,12 +419,17 @@ export interface FileRouteTypes {
     | '/api/med-analysis'
     | '/api/vapi-call'
     | '/auth/callback'
+    | '/share/$token'
     | '/_admin/admin/doctors'
     | '/_admin/admin/patients'
     | '/_doctor/doctor/appointments'
     | '/_doctor/doctor/profile'
+    | '/_doctor/doctor/scan-qr'
     | '/api/nutrition/generate-plan'
     | '/api/nutrition/search'
+    | '/api/qr-share/create'
+    | '/api/qr-share/revoke'
+    | '/api/qr-share/view'
     | '/_admin/admin/'
     | '/_doctor/doctor/patient/$id'
   fileRoutesById: FileRoutesById
@@ -376,8 +448,12 @@ export interface RootRouteChildren {
   ApiMedAnalysisRoute: typeof ApiMedAnalysisRoute
   ApiVapiCallRoute: typeof ApiVapiCallRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  ShareTokenRoute: typeof ShareTokenRoute
   ApiNutritionGeneratePlanRoute: typeof ApiNutritionGeneratePlanRoute
   ApiNutritionSearchRoute: typeof ApiNutritionSearchRoute
+  ApiQrShareCreateRoute: typeof ApiQrShareCreateRoute
+  ApiQrShareRevokeRoute: typeof ApiQrShareRevokeRoute
+  ApiQrShareViewRoute: typeof ApiQrShareViewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -422,6 +498,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/$token': {
+      id: '/share/$token'
+      path: '/share/$token'
+      fullPath: '/share/$token'
+      preLoaderRoute: typeof ShareTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -472,6 +555,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/analyze-report'
       preLoaderRoute: typeof ApiAnalyzeReportRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_patient/share': {
+      id: '/_patient/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof PatientShareRouteImport
+      parentRoute: typeof PatientRoute
     }
     '/_patient/reports': {
       id: '/_patient/reports'
@@ -536,6 +626,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/qr-share/view': {
+      id: '/api/qr-share/view'
+      path: '/api/qr-share/view'
+      fullPath: '/api/qr-share/view'
+      preLoaderRoute: typeof ApiQrShareViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/qr-share/revoke': {
+      id: '/api/qr-share/revoke'
+      path: '/api/qr-share/revoke'
+      fullPath: '/api/qr-share/revoke'
+      preLoaderRoute: typeof ApiQrShareRevokeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/qr-share/create': {
+      id: '/api/qr-share/create'
+      path: '/api/qr-share/create'
+      fullPath: '/api/qr-share/create'
+      preLoaderRoute: typeof ApiQrShareCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/nutrition/search': {
       id: '/api/nutrition/search'
       path: '/api/nutrition/search'
@@ -549,6 +660,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/nutrition/generate-plan'
       preLoaderRoute: typeof ApiNutritionGeneratePlanRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_doctor/doctor/scan-qr': {
+      id: '/_doctor/doctor/scan-qr'
+      path: '/scan-qr'
+      fullPath: '/doctor/scan-qr'
+      preLoaderRoute: typeof DoctorDoctorScanQrRouteImport
+      parentRoute: typeof DoctorDoctorRoute
     }
     '/_doctor/doctor/profile': {
       id: '/_doctor/doctor/profile'
@@ -605,12 +723,14 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface DoctorDoctorRouteChildren {
   DoctorDoctorAppointmentsRoute: typeof DoctorDoctorAppointmentsRoute
   DoctorDoctorProfileRoute: typeof DoctorDoctorProfileRoute
+  DoctorDoctorScanQrRoute: typeof DoctorDoctorScanQrRoute
   DoctorDoctorPatientIdRoute: typeof DoctorDoctorPatientIdRoute
 }
 
 const DoctorDoctorRouteChildren: DoctorDoctorRouteChildren = {
   DoctorDoctorAppointmentsRoute: DoctorDoctorAppointmentsRoute,
   DoctorDoctorProfileRoute: DoctorDoctorProfileRoute,
+  DoctorDoctorScanQrRoute: DoctorDoctorScanQrRoute,
   DoctorDoctorPatientIdRoute: DoctorDoctorPatientIdRoute,
 }
 
@@ -637,6 +757,7 @@ interface PatientRouteChildren {
   PatientDrugSafetyRoute: typeof PatientDrugSafetyRoute
   PatientProfileRoute: typeof PatientProfileRoute
   PatientReportsRoute: typeof PatientReportsRoute
+  PatientShareRoute: typeof PatientShareRoute
 }
 
 const PatientRouteChildren: PatientRouteChildren = {
@@ -647,6 +768,7 @@ const PatientRouteChildren: PatientRouteChildren = {
   PatientDrugSafetyRoute: PatientDrugSafetyRoute,
   PatientProfileRoute: PatientProfileRoute,
   PatientReportsRoute: PatientReportsRoute,
+  PatientShareRoute: PatientShareRoute,
 }
 
 const PatientRouteWithChildren =
@@ -666,8 +788,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMedAnalysisRoute: ApiMedAnalysisRoute,
   ApiVapiCallRoute: ApiVapiCallRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  ShareTokenRoute: ShareTokenRoute,
   ApiNutritionGeneratePlanRoute: ApiNutritionGeneratePlanRoute,
   ApiNutritionSearchRoute: ApiNutritionSearchRoute,
+  ApiQrShareCreateRoute: ApiQrShareCreateRoute,
+  ApiQrShareRevokeRoute: ApiQrShareRevokeRoute,
+  ApiQrShareViewRoute: ApiQrShareViewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

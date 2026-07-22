@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Users, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays } from "lucide-react";
+import { Users, User, PanelLeftClose, PanelLeftOpen, LogOut, CalendarDays, QrCode } from "lucide-react";
 import { MedSevaLogo } from "./MedSevaLogo";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,9 +8,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 const items = [
-  { to: "/doctor",              label: "Patient Queue",  icon: Users,        requiresApproval: true },
-  { to: "/doctor/appointments", label: "Appointments",   icon: CalendarDays, requiresApproval: true },
-  { to: "/doctor/profile",      label: "Profile",        icon: User,         requiresApproval: false },
+  { to: "/doctor",              label: "Patient Queue",   icon: Users,        requiresApproval: true },
+  { to: "/doctor/appointments", label: "Appointments",    icon: CalendarDays, requiresApproval: true },
+  { to: "/doctor/scan-qr",      label: "Scan Patient QR", icon: QrCode,       requiresApproval: false },
+  { to: "/doctor/profile",      label: "Profile",         icon: User,         requiresApproval: false },
 ];
 
 function DoctorSidebarInner() {
@@ -85,7 +86,8 @@ function DoctorSidebarInner() {
                 (to === "/doctor" &&
                   pathname.startsWith("/doctor") &&
                   pathname !== "/doctor/profile" &&
-                  pathname !== "/doctor/appointments"));
+                  pathname !== "/doctor/appointments" &&
+                  pathname !== "/doctor/scan-qr"));
 
             const btn = locked ? (
               <Tooltip key={to}>

@@ -15,5 +15,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: "medseva-auth",
+  },
+  global: {
+    headers: { "x-client-info": "medseva/1.0" },
+  },
+  realtime: {
+    params: { eventsPerSecond: 10 },
   },
 });

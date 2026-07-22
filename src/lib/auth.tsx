@@ -28,19 +28,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const profile = session ? await fetchProfile(session.user.id) : null;
-      setState({ session, user: session?.user ?? null, profile, loading: false });
-    });
+    let isMounted = true;
 
-    // Listen for auth changes
+    // Listen for auth changes first to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return;
       const profile = session ? await fetchProfile(session.user.id) : null;
-      setState({ session, user: session?.user ?? null, profile, loading: false });
+      if (isMounted) setState({ session, user: session?.user ?? null, profile, loading: false });
     });
 
-    return () => subscription.unsubscribe();
+    // Then get initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
+      const profile = session ? await fetchProfile(session.user.id) : null;
+      if (isMounted) setState({ session, user: session?.user ?? null, profile, loading: false });
+    });
+
+    return () => { isMounted = false; subscription.unsubscribe(); };
   }, []);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
@@ -49,9 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, role, full_name, email, phone, avatar_url, created_at, updated_at")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
   return data ?? null;
 }
 

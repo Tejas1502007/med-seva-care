@@ -84,57 +84,33 @@ function Onboarding() {
         if (!fullName) { toast.error("Please enter your full name"); setLoading(false); return false; }
         const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : null;
 
-        // Upsert the profiles row first with the correct role
-        await supabase.from("profiles").upsert({
-          id: userId,
-          role: "patient",
-          email: email,
-          full_name: fullName,
-          phone: phone || null,
-        });
-
-        await supabase.from("patient_profiles").upsert({
-          id: userId,
-          age,
-          dob: dob || null,
-          gender: gender as "Male" | "Female" | "Other",
-          blood_group: bloodGroup,
-          height: height ? parseFloat(height) : null,
-          weight: weight ? parseFloat(weight) : null,
-        } as never);
+        await Promise.all([
+          supabase.from("profiles").upsert({ id: userId, role: "patient", email, full_name: fullName, phone: phone || null }),
+          supabase.from("patient_profiles").upsert({
+            id: userId, age, dob: dob || null,
+            gender: gender as "Male" | "Female" | "Other",
+            blood_group: bloodGroup,
+            height: height ? parseFloat(height) : null,
+            weight: weight ? parseFloat(weight) : null,
+          } as never),
+        ]);
 
       } else {
-        // Doctor
         if (!docName) { toast.error("Please enter your full name"); setLoading(false); return false; }
         if (!regNumber) { toast.error("Please enter your registration number"); setLoading(false); return false; }
 
-        // Upsert the profiles row with role = 'doctor'
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: userId,
-          role: "doctor",
-          email: email,
-          full_name: docName,
-        });
-
-        if (profileError) {
-          console.error("Profile upsert error:", profileError);
-          // Try update instead if upsert fails (row may already exist)
-          await supabase.from("profiles").update({
-            role: "doctor",
-            full_name: docName,
-          }).eq("id", userId);
-        }
-
-        // Create the doctor_profiles row
-        await supabase.from("doctor_profiles").upsert({
-          id: userId,
-          registration_number: regNumber,
-          specialization: specialization || "General",
-          qualification: "MBBS",
-          hospital_clinic: hospital || null,
-          profile_completed: false,
-          verification_status: "pending_review",
-        });
+        await Promise.all([
+          supabase.from("profiles").upsert({ id: userId, role: "doctor", email, full_name: docName }),
+          supabase.from("doctor_profiles").upsert({
+            id: userId,
+            registration_number: regNumber,
+            specialization: specialization || "General",
+            qualification: "MBBS",
+            hospital_clinic: hospital || null,
+            profile_completed: false,
+            verification_status: "pending_review",
+          }),
+        ]);
       }
 
       setLoading(false);

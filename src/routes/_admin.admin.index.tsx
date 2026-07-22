@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Users, Stethoscope, Activity, TrendingUp,
-  AlertTriangle, CheckCircle, Clock, UserCheck,
-  ArrowRight, RefreshCw,
+  AlertTriangle, CheckCircle, Clock,
+  ArrowRight, RefreshCw, QrCode,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -23,6 +23,18 @@ interface Stats {
   pendingDoctors: number;
   approvedDoctors: number;
   reportsToday: number;
+  activeShares: number;
+  totalShareAccesses: number;
+}
+
+interface QrShareRow {
+  id: string;
+  patient_id: string;
+  is_active: boolean;
+  access_count: number;
+  created_at: string;
+  last_accessed_at: string | null;
+  expires_at: string | null;
 }
 
 interface RecentPatient {
@@ -50,6 +62,7 @@ function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentPatients, setRecentPatients] = useState<RecentPatient[]>([]);
   const [recentDoctors, setRecentDoctors] = useState<RecentDoctor[]>([]);
+  const [qrShares, setQrShares] = useState<QrShareRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -67,8 +80,10 @@ function AdminDashboard() {
       { count: pendingDoctors },
       { count: approvedDoctors },
       { count: reportsToday },
+      { count: activeShares },
       patientRes,
       doctorRes,
+      qrSharesRes,
     ] = await Promise.all([
       supabase.from("patient_profiles").select("*", { count: "exact", head: true }),
       supabase.from("doctor_profiles").select("*", { count: "exact", head: true }),
@@ -80,9 +95,13 @@ function AdminDashboard() {
       supabase.from("doctor_profiles").select("*", { count: "exact", head: true }).eq("verification_status", "pending_review"),
       supabase.from("doctor_profiles").select("*", { count: "exact", head: true }).eq("verification_status", "approved"),
       supabase.from("health_reports").select("*", { count: "exact", head: true }).gte("created_at", today),
+      supabase.from("qr_shares" as never).select("*", { count: "exact", head: true }).eq("is_active", true),
       supabase.from("patient_profiles").select("id, created_at").order("created_at", { ascending: false }).limit(5),
       supabase.from("doctor_profiles").select("id, specialization, verification_status, created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("qr_shares" as never).select("id, patient_id, is_active, access_count, created_at, last_accessed_at, expires_at").order("created_at", { ascending: false }).limit(8),
     ]);
+    const qrRows = (qrSharesRes.data ?? []) as QrShareRow[];
+    const totalShareAccesses = qrRows.reduce((sum, r) => sum + (r.access_count ?? 0), 0);
     const patientRows = (patientRes.data ?? []) as PatientRow[];
     const doctorRows = (doctorRes.data ?? []) as DoctorRow[];
 
@@ -97,7 +116,10 @@ function AdminDashboard() {
       pendingDoctors: pendingDoctors ?? 0,
       approvedDoctors: approvedDoctors ?? 0,
       reportsToday: reportsToday ?? 0,
+      activeShares: activeShares ?? 0,
+      totalShareAccesses,
     });
+    setQrShares(qrRows);
 
     // Enrich patients with base profiles
     if (patientRows.length > 0) {
@@ -178,6 +200,45 @@ function AdminDashboard() {
         <StatCard icon={TrendingUp} iconBg="#F0FDF4" iconColor="#16A34A"
           label="Consultations" value={s.totalConsultations} sub="All time" />
       </div>
+
+      {/* QR Share stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard icon={QrCode} iconBg="#F5F3FF" iconColor="#7C3AED"
+          label="Active QR Shares" value={s.activeShares} sub="Currently live" />
+        <StatCard icon={Activity} iconBg="#FFF1F2" iconColor="#E11D48"
+          label="Total QR Accesses" value={s.totalShareAccesses} sub="All time doctor views" />
+      </div>
+
+      {/* QR Share audit log */}
+      {qrShares.length > 0 && (
+        <div className="card-base p-5">
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "#1A2332" }}>Recent QR Share Activity</h3>
+          <div className="space-y-2">
+            {qrShares.map((s) => (
+              <div key={s.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "#F7F8FA" }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: s.is_active ? "#F5F3FF" : "#F3F4F6" }}>
+                  <QrCode size={14} color={s.is_active ? "#7C3AED" : "#9CA3AF"} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium" style={{ color: "#374151" }}>Share #{s.id.slice(0, 8)}</div>
+                  <div className="text-[10px]" style={{ color: "#9CA3AF" }}>
+                    Created {new Date(s.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                    {s.last_accessed_at && ` · Last accessed ${new Date(s.last_accessed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-semibold" style={{ color: "#6B7280" }}>{s.access_count} views</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: s.is_active ? "#F5F3FF" : "#F3F4F6", color: s.is_active ? "#7C3AED" : "#9CA3AF" }}>
+                    {s.is_active ? "ACTIVE" : "REVOKED"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Risk breakdown + Doctor verification */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
